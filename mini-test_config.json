@@ -1,0 +1,26 @@
+{
+    "name": "Mini Test Case Chinese",
+    "output_dir": "./outputs/mini-test.zho/",
+    "job_assignment": {
+        "root": ["300", "301", "303", "307", "311"]
+    },
+    "topic_file": "./resources/neuclir24-test-zho.requests.jsonl",
+    "topic_id_field": "request_id",
+    "topic_fields": [
+        "problem_statement",
+        "background"
+    ],
+    "cited_sentences_path": "./resources/mini-test.citation-to-sentences.json",
+    "sentence_to_document_options": [
+        "not supported",
+        "supported"
+    ],
+    "report_runs_path": "./resources/mini-test.report-sentences.json",
+    "sentence_independent_option": [
+        "no need citations",
+        "need citation"
+    ],
+    "sentence_allow_multiple_nuggets": false,
+    "doc_service": "ir_datasets",
+    "collection_id": "neuclir/1/zh"
+}
