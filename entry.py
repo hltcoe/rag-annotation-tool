@@ -22,7 +22,7 @@ _style_modifier = """
     border-width: 2px
 }
 
-[data-testid="stVerticalBlockBorderWrapper"]:has(.fake_button_container) button {
+[data-testid="stVerticalBlockBorderWrapper"][height]:has(.fake_button_container) button {
     border-width: 0px;
     text-align: left;
 }
@@ -36,16 +36,6 @@ _style_modifier = """
 
 </style>
 """
-
-
-# button:has(.is_active_flag) {
-#     border-color: red; 
-#     border-width: 2px
-# }
-
-# button:has(.instance_is_done_flag) {
-#     color: gray
-# }
 
 # Do this before importing each pages
 def init_app(args):
@@ -66,7 +56,7 @@ def init_app(args):
     )
 
     st.html(_style_modifier)
-    
+
     return get_auth_manager(args.user_db_path)
 
 
@@ -290,7 +280,8 @@ def draw_sidebar():
                     args=("manage_users", ), 
                     on_click=goto_page
                 )
-                pass
+                
+                st.write(auth_manager.session_user_mapping)
             
             st.divider()
             

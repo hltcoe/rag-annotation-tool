@@ -97,10 +97,9 @@ def draw_bread_crumb(
     return st.session_state[key]
 
 
-
-
-
 def _get_session_id():
+    if 'ajs_anonymous_id' not in st.context.cookies:
+        return None
     return st.context.cookies['ajs_anonymous_id']
 
 
@@ -118,6 +117,9 @@ class AuthManager(SqliteManager):
 
     @property
     def current_user(self):
+        if _get_session_id() is None:
+            st.error("Please refresh the browser tab.")
+
         if _get_session_id() not in self.session_user_mapping:
             return None
         
@@ -170,6 +172,7 @@ class AuthManager(SqliteManager):
         is_success, is_admin = self._validate(username, password)
         
         if is_success:
+            assert _get_session_id() is not None
             self.session_user_mapping[ _get_session_id() ] = (username, is_admin)
         
         return is_success

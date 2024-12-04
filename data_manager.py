@@ -408,6 +408,11 @@ class SentenceAnnotationManager(SqliteManager):
         if isinstance(annotation, NuggetSelection):
             annotation = annotation.as_json()
 
+        # prevent update if the value is the same
+        if key in self and self.content_df.loc[pd.MultiIndex.from_tuples([key]), slot].iloc[0] == annotation:
+            # print(f"-- same value for {key}, skip update")
+            return
+
         self.content_df.loc[pd.MultiIndex.from_tuples([key]), slot] = annotation
 
         # save to db
