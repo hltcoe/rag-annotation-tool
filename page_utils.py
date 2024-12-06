@@ -96,6 +96,17 @@ def draw_bread_crumb(
 
     return st.session_state[key]
 
+def toggle_button(label: str, key: str, default_open: bool=False, small: bool=True):
+    session_set_default(key, default_open)
+    def _click():
+        st.session_state[key] = not st.session_state[key]
+
+    if small:
+        st.pills(label="_", options=[label], label_visibility="collapsed", on_change=_click)
+    else:
+        st.button(label, on_click=_click)
+    
+    return st.session_state[key]
 
 def _get_session_id():
     if 'ajs_anonymous_id' not in st.context.cookies:

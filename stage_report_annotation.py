@@ -84,14 +84,6 @@ def report_annotation_page(auth_manager: AuthManager):
 
             # st.write(content)
 
-    def _check_done_and_move_on():
-        sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-
-        if report_annotation_manager.is_all_done(current_topic, run_id, sent_id):
-            st.session_state['sent_indep'] = None
-            idx = (all_sent_ids.index(sent_id) + 1) % len(all_sent_ids)
-            st.session_state[f'active_sent/{current_topic}/{run_id}'] = all_sent_ids[idx]
-
 
     def _on_option_select(slot):
         sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
@@ -100,12 +92,8 @@ def report_annotation_page(auth_manager: AuthManager):
             key=(current_topic, run_id, sent_id), slot=slot, annotation=st.session_state[slot]
         )
 
-        # _check_done_and_move_on()
-
     def _on_nugget_select():
         sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-
-
         if st.session_state['nugget_question'] == "N/A":
             st.session_state["nugget_answer"] = "N/A"
         
@@ -118,16 +106,24 @@ def report_annotation_page(auth_manager: AuthManager):
             current_nugget = NuggetSelection()
         
         current_nugget.add((st.session_state['nugget_question'], st.session_state['nugget_answer']))
-            
-
         report_annotation_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
 
         st.session_state['nugget_question'] = None
         st.session_state['nugget_answer'] = None
-        
-        # _check_done_and_move_on()
 
+    def _on_nugget_unselect():
+        sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
 
+        assert len(st.session_state['nugget_unselect']['edited_rows']) == 1
+        removing_row_idx, _action = next(iter(st.session_state['nugget_unselect']['edited_rows'].items()))
+        assert _action['delete']
+
+        current_nugget: NuggetSelection = report_annotation_manager[current_topic, run_id, sent_id]['nugget']
+
+        removing_row = current_nugget.as_dataframe().iloc[removing_row_idx]
+        current_nugget.remove((removing_row['Question'], removing_row['Answer']))
+
+        report_annotation_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
 
 
     with nugget_col.container(height=700):
@@ -152,8 +148,10 @@ def report_annotation_page(auth_manager: AuthManager):
             on_change=_on_option_select
         )
 
+        st.write("")
+        st.write("**Nugget Selection**")
         
-        nuggets_for_selection = nugget_viewer[current_topic].as_dict(only_answers=True)
+        nuggets_for_selection = nugget_viewer[current_topic].as_nugget_dict(only_answers=True)
         question_select = st.selectbox(
             label="Select nugget question",
             key="nugget_question",
@@ -168,7 +166,7 @@ def report_annotation_page(auth_manager: AuthManager):
             st.selectbox(
                 label="Select nugget answer",
                 key="nugget_answer",
-                options=sorted(nuggets_for_selection[question_select]),
+                options=sorted(nuggets_for_selection[question_select]) + ["Other acceptable answer"],
                 index=None,
                 placeholder="...",
                 on_change=_on_nugget_select
@@ -176,12 +174,15 @@ def report_annotation_page(auth_manager: AuthManager):
 
         st.write("**Selected Nuggets**")
 
-        st.dataframe(
-            report_annotation_manager[current_topic, run_id, active_sent_id]['nugget'].as_dataframe(),
+        st.data_editor(
+            report_annotation_manager[current_topic, run_id, active_sent_id]['nugget'].as_dataframe().assign(delete=False),
+            column_order=["delete", "Question", "Answer"],
+            disabled=("Question", "Answer"),
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            column_config={
+                "delete": st.column_config.CheckboxColumn("Delete?", width=None, default=False)
+            },
+            key="nugget_unselect",
+            on_change=_on_nugget_unselect
         )
-
-        # st.write(nuggets_for_selection)
-    
-    # st.write(st.session_state)

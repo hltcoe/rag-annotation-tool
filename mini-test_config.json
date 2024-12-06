@@ -20,7 +20,8 @@
         "no need citations",
         "need citation"
     ],
-    "sentence_allow_multiple_nuggets": false,
+    "use_revised_nugget_only": false,
+    "sentence_allow_multiple_nuggets": true,
     "doc_service": "ir_datasets",
     "collection_id": "neuclir/1/zh"
 }

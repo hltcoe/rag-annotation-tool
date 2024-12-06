@@ -207,7 +207,7 @@ def task_dashboard(auth_manager: AuthManager):
 
         st.write(f"## {task_name}")
 
-        st.write("### Citation Assessments")
+        st.write("### Citation Assessments and Support")
 
         def _jump(page, topic_id):
             st.session_state['sidebar_state'] = "collapsed"
@@ -281,7 +281,7 @@ def draw_sidebar():
                     on_click=goto_page
                 )
                 
-                st.write(auth_manager.session_user_mapping)
+                # st.write(auth_manager.session_user_mapping)
             
             st.divider()
             

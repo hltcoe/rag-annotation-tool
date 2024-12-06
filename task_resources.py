@@ -31,6 +31,8 @@ class TaskConfig:
     force_citation_asssessment_before_report: bool = True
     load_nugget_from: Literal['db', 'json'] = "json"
     combine_nuggets_from_multiple_users: bool = False
+    use_revised_nugget_only: bool = True
+
     report_runs_path: str = None # a json with {'topic_id: {'run_id': {'sen_id': 'sentence_text'}}, ...}
     sentence_independent_option: List[str] = field(default_factory=lambda :["no need citations", "need citation"])
     sentence_allow_multiple_nuggets: bool = False

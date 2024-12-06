@@ -80,8 +80,10 @@ class NuggetSet:
     def __init__(self):
         self.nugget_list: List[Tuple[str, Dict[str, Set[str]]]] = []
         # [ (question, { answer: {doc_id...} ... }), ... ]
+        self.group_assignment: Dict[str, str] = {}
+        # {question: group}
 
-    def get(self, question: str, default = None, only_answers: bool = False):
+    def get(self, question: str, default=None, only_answers: bool=False):
         question = question.strip()
         for q, a_dict in self.nugget_list:
             if q == question:
@@ -89,16 +91,53 @@ class NuggetSet:
             
         return default
 
+    @property
+    def groups(self):
+        return sorted(set(self.group_assignment.values())) + ["default"]
+
     def __contains__(self, key: str):
         return self.get(key) is not None
 
     def __getitem__(self, idx: int):
         return self.nugget_list[idx]
 
-    def iter_nuggets(self, only_answers: bool = False):
+    def set_group(self, nq: str, group: str):
+        assert nq in self
+        assert group is not None
+        if group == "default":
+            del self.group_assignment[nq]
+        else:
+            self.group_assignment[nq] = group
+
+    def get_group(self, nq: str):
+        return self.group_assignment.get(nq, "default")
+
+    def rename_group(self, old_name: str, new_name: str):
+        assert old_name in self.groups and old_name != "default" and new_name != "default"
+        self.group_assignment = {
+            nq: gp if gp != old_name else new_name
+            for nq, gp in self.group_assignment.items()
+        }
+
+    def iter_grouped_nuggets(self):
+        inverted_group = { g: [] for g in self.groups }
+        for idx, (nq, a_dict) in enumerate(self.nugget_list):
+            if nq in self.group_assignment:
+                inverted_group[self.group_assignment[nq]].append((idx, nq, a_dict))
+        inverted_group['default'] = [ 
+            (idx, nq, a_dict)
+            for idx, (nq, a_dict) in enumerate(self.nugget_list) 
+            if nq not in self.group_assignment 
+        ]
+
+        for group in self.groups: # sort by group name
+            yield group, sorted(inverted_group[group], key=lambda x: x[1]) # sort by question
+
+
+    def iter_nuggets(self, only_answers: bool=False):
         yield from (
-            (question, a_dict.keys() if only_answers else a_dict)
-            for question, a_dict in self.nugget_list
+            (nidx, question, a_dict.keys() if only_answers else a_dict)
+            for nidx, (question, a_dict) in enumerate(self.nugget_list)
         )
 
     def add(self, question: str, doc_answer_pairs: Iterable[Tuple[str, str]]):
@@ -132,24 +171,6 @@ class NuggetSet:
             
             self.get(question)[answer].remove(doc_id)
 
-    def as_dict(self, only_answers: bool = False):
-        return {
-            q: sorted(a_dict.keys()) if only_answers else a_dict
-            for q, a_dict in self.nugget_list
-        }
-
-    def as_json(self):
-        return json.dumps({
-            q: { a: list(doc_set) for a, doc_set in a_dict.items() }
-            for q, a_dict in self.as_dict(only_answers=False).items()
-        })
-
-    def as_dataframe(self):
-        return pd.DataFrame({
-            'Question': [ q for q, _ in self.nugget_list ],
-            'Answers': [ "; ".join(sorted(a_dict.keys())) for _, a_dict in self.nugget_list ]
-        }).astype(str)
-
     def __add__(self, obj: 'NuggetSet'):
         new_nugget_set = self.__class__()
         new_nugget_set.nugget_list = deepcopy(self.nugget_list)
@@ -163,23 +184,54 @@ class NuggetSet:
                         new_nugget_set.get(q)[answer] = doc_set
             else:
                 new_nugget_set.nugget_list.append((q, a_dict))
+
+        new_nugget_set.group_assignment = { **self.group_assignment, **obj.group_assignment }
         
         return new_nugget_set
-        
+
+    def as_nugget_dict(self, only_answers: bool = False):
+        return {
+            q: sorted(a_dict.keys()) if only_answers else a_dict
+            for q, a_dict in self.nugget_list
+        }
+
+    def as_json(self, indent=None):
+        return json.dumps({
+            'nugget_dict': {
+                q: { a: list(doc_set) for a, doc_set in a_dict.items() }
+                for q, a_dict in self.as_nugget_dict(only_answers=False).items()
+            },
+            'group_assignment': {
+                nq: gp
+                for nq, gp in self.group_assignment.items() if gp != "default"
+            }
+        }, indent=indent)
+
+    # def as_dataframe(self):
+    #     return pd.DataFrame({
+    #         'Question': [ q for q, _ in self.nugget_list ],
+    #         'Answers': [ "; ".join(sorted(a_dict.keys())) for _, a_dict in self.nugget_list ]
+    #     }).astype(str)
 
     @classmethod
-    def from_dict(cls, nugget_dict: Dict[str, Dict[str, List[str]]]):
+    def from_dict(cls, nugget_dict: Dict[str, Dict[str, List[str]]], group_assignment: Dict[str, str] = {}):
         ret = cls()
         ret.nugget_list = [
             (question, { answer: set(doc_ids) for answer, doc_ids in a_dict.items() })
             for question, a_dict in nugget_dict.items()
         ]
+
+        assert len(group_assignment.keys() - nugget_dict.keys()) == 0
+        ret.group_assignment = group_assignment
         
         return ret
 
     @classmethod
     def from_json(cls, json_string: str):
-        return cls.from_dict(json.loads(json_string))
+        json_dict = json.loads(json_string)
+        if "nugget_dict" not in json_dict:
+            json_dict = {"nugget_dict": json_dict}
+        return cls.from_dict(**json_dict)
 
 
 class NuggetSelection(set):
@@ -194,11 +246,10 @@ class NuggetSelection(set):
         return cls(map(tuple, json.loads(json_string)))
     
     def as_json(self):
-        return json.dumps(list(self))
+        return json.dumps(sorted(self))
 
     def as_dataframe(self):
-        return pd.DataFrame(list(self), columns=['Question', 'Answer'])
-
+        return pd.DataFrame(sorted(self), columns=['Question', 'Answer'])
 
 
 class NuggetViewer(SqliteManager):
@@ -208,7 +259,8 @@ class NuggetViewer(SqliteManager):
             username: str,
             db_path: str = None, load_dir: str = None, 
             use_json: bool=True, 
-            combine_nuggets_from_multiple_users: bool=True
+            combine_nuggets_from_multiple_users: bool=True,
+            use_revised_nugget_only: bool=True
         ):
         assert (db_path is not None) or (load_dir is not None)
         if use_json:
@@ -220,12 +272,15 @@ class NuggetViewer(SqliteManager):
         self.username = username
         self.use_json = use_json
         self.combine_nuggets_from_multiple_users = combine_nuggets_from_multiple_users
+        self.use_revised_nugget_only = use_revised_nugget_only
     
     def iter_nugget_sets_from_json(self, topic_id: str):
-        yield from map(
-            lambda fn: NuggetSet.from_json(fn.read_text()),
-            self.load_dir.glob(f"nuggets_{topic_id}_{"*" if self.combine_nuggets_from_multiple_users else self.username}.json")
-        )
+        if self.use_revised_nugget_only:
+            fns = self.load_dir.glob(f"nuggets_{topic_id}.revised.json")
+        else:
+            fns = self.load_dir.glob(f"nuggets_{topic_id}_{"*" if self.combine_nuggets_from_multiple_users else self.username}.json")
+
+        yield from map(lambda fn: NuggetSet.from_json(fn.read_text()), fns)
         
     def iter_nuggest_sets_from_db(self, topic_id: str):
         if not self.combine_nuggets_from_multiple_users:
@@ -255,7 +310,7 @@ class NuggetSaverManager(SqliteManager):
         self.username = self.logger.username
         self.output_dir = Path(output_dir)
 
-        self.nugget_dict: Dict[str, NuggetSet] = {}
+        self.topic_nuggets: Dict[str, NuggetSet] = {}
 
         if not self.table_exists('nuggets'):
             self.execute_simple("""
@@ -264,22 +319,25 @@ class NuggetSaverManager(SqliteManager):
                     nugget_json string, ts datetime default current_timestamp
                 );
             """)
-        
-        # TODO: make preload existing nuggets possible
 
         existing_nugget_records = self.execute_simple("""select topic_id, nugget_json from nuggets;""")
         # print(existing_nugget_records)
         for topic_id, nugget_json in existing_nugget_records:
-            self.nugget_dict[str(topic_id)] = NuggetSet.from_json(nugget_json)
+            self.topic_nuggets[str(topic_id)] = NuggetSet.from_json(nugget_json)
+
+        for fn in self.output_dir.glob("nuggets_*.preload.json"):
+            topic_id = fn.stem.replace(".preload", "").split("_", 2)[1]
+            if topic_id not in self.topic_nuggets:
+                self.topic_nuggets[topic_id] = NuggetSet.from_json(fn.read_text())
         
     def __getitem__(self, topic_id: str):
-        if topic_id not in self.nugget_dict:
-            self.nugget_dict[topic_id] = NuggetSet()
+        if topic_id not in self.topic_nuggets:
+            self.topic_nuggets[topic_id] = NuggetSet()
 
-        return self.nugget_dict[topic_id]
+        return self.topic_nuggets[topic_id]
 
     def __contains__(self, topic_id: str):
-        return topic_id in self.nugget_dict
+        return topic_id in self.topic_nuggets
 
     def flush(self, topic_id: str):
         assert topic_id in self 
@@ -294,8 +352,7 @@ class NuggetSaverManager(SqliteManager):
         # also save a text version
         
         with (self.output_dir / f"nuggets_{topic_id}_{self.username}.json").open("w") as fw:
-            fw.write(self[topic_id].as_json())
-
+            fw.write(self[topic_id].as_json(indent=4))
 
 
 def _flatten_dict(obj: Mapping[str, Mapping]):
@@ -473,5 +530,6 @@ def get_nugget_viewer(task_config: TaskConfig, username: str):
         username=username, db_path=output_dir / "annotation.db",
         load_dir=output_dir,
         use_json=(task_config.load_nugget_from == 'json'),
-        combine_nuggets_from_multiple_users=task_config.combine_nuggets_from_multiple_users
+        combine_nuggets_from_multiple_users=task_config.combine_nuggets_from_multiple_users,
+        use_revised_nugget_only=task_config.use_revised_nugget_only
     )
