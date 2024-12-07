@@ -102,7 +102,13 @@ def toggle_button(label: str, key: str, default_open: bool=False, small: bool=Tr
         st.session_state[key] = not st.session_state[key]
 
     if small:
-        st.pills(label="_", options=[label], label_visibility="collapsed", on_change=_click)
+        st.pills(
+            label="_", 
+            options=[label], 
+            default=label if st.session_state[key] else None, 
+            label_visibility="collapsed", 
+            on_change=_click
+        )
     else:
         st.button(label, on_click=_click)
     

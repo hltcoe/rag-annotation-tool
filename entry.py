@@ -1,10 +1,10 @@
-import uuid
 from argparse import ArgumentParser
 from pathlib import Path
 import pandas as pd
 
+from itertools import cycle
+
 import streamlit as st
-from streamlit.runtime.state import get_session_state
 from page_utils import random_key, draw_pages, stpage, goto_page, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
@@ -63,6 +63,7 @@ def init_app(args):
 # just import should be fine...
 from stage_citaiton_assessment import citation_assessment_page
 from stage_report_annotation import report_annotation_page
+from stage_nugget_revision import nugget_revision_page
 
 
 @stpage(name='login')
@@ -216,7 +217,7 @@ def task_dashboard(auth_manager: AuthManager):
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, 'citation_assessment_manager')
-        for topic_id, col in zip(citation_assess_topics, st.columns(8)):
+        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
 
             n_done = citation_assessment_manager.count_done(topic_id, level='doc_id')
             # n_job = len(task_config.cited_sentences[topic_id])
@@ -237,7 +238,7 @@ def task_dashboard(auth_manager: AuthManager):
             st.caption("Can only start assessing report sentences after citation assessments are finished.")
         report_annotation_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
         report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, 'report_annotation_manager')
-        for topic_id, col in zip(report_annotation_topics, st.columns(8)):
+        for topic_id, col in zip(report_annotation_topics, cycle(st.columns(8))):
             
             # TODO: disable ones that haven't finished citation assessments
             icon = ':material/check_box_outline_blank:' if not report_annotation_manager.is_all_done(topic_id) else ':material/select_check_box:'
@@ -253,6 +254,17 @@ def task_dashboard(auth_manager: AuthManager):
                 kwargs={'topic': topic_id, "collapse_sidebar": True},
                 on_click=goto_page
             )
+        
+        if auth_manager.is_admin:
+            st.write("### Nugget Revision (Admin Only)")
+            for topic_id, col in zip(sorted(task_config.report_runs.keys()), cycle(st.columns(8))):
+                col.button(
+                    f"Topic {topic_id}",
+                    use_container_width=True, 
+                    args=("nugget_revision", ), 
+                    kwargs={'topic': topic_id, "collapse_sidebar": True},
+                    on_click=goto_page
+                )
 
 
 def draw_sidebar():

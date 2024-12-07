@@ -106,7 +106,7 @@ def draw_nugget_editor(
         if group_name != "default":
             name_col, change_col = group_container.columns([5.5,1.5], vertical_alignment='center')
             name_col.write(f":orange[Group: {group_name}]")
-            if change_col.button("rename_group", icon=":material/edit:", key=f"{key_prefix}/group/{group_name}/rename"):
+            if change_col.button("Rename", icon=":material/edit:", key=f"{key_prefix}/group/{group_name}/rename"):
                 rename_group_modal(group_name)
 
         for nidx, question, a_dict in nugget_members:

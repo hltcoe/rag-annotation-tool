@@ -207,11 +207,11 @@ class NuggetSet:
             }
         }, indent=indent)
 
-    # def as_dataframe(self):
-    #     return pd.DataFrame({
-    #         'Question': [ q for q, _ in self.nugget_list ],
-    #         'Answers': [ "; ".join(sorted(a_dict.keys())) for _, a_dict in self.nugget_list ]
-    #     }).astype(str)
+    def as_dataframe(self):
+        return pd.DataFrame({
+            'Question': [ q for q, _ in self.nugget_list ],
+            'Answers': [ "; ".join(sorted(a_dict.keys())) for _, a_dict in self.nugget_list ]
+        }).astype(str)
 
     @classmethod
     def from_dict(cls, nugget_dict: Dict[str, Dict[str, List[str]]], group_assignment: Dict[str, str] = {}):
@@ -489,7 +489,7 @@ def session_set_default(session_key, default=None):
     
     return st.session_state[session_key]
 
-
+# TODO: might want to control what page need to initilize what
 def initialize_managers(task_config: TaskConfig, username: str):
     output_dir = Path(task_config.output_dir)
 
@@ -524,12 +524,20 @@ def initialize_managers(task_config: TaskConfig, username: str):
 def get_manager(task_config: TaskConfig, manager_name: str):
     return st.session_state[f"{task_config.name}/{manager_name}"]
 
-def get_nugget_viewer(task_config: TaskConfig, username: str):
+def get_nugget_viewer(
+        task_config: TaskConfig, username: str=None,
+        from_all_users: bool=None, use_revised_nugget: bool=None
+    ):
+    if use_revised_nugget is None:
+        use_revised_nugget = task_config.use_revised_nugget_only
+    if from_all_users is None:
+        from_all_users = task_config.combine_nuggets_from_multiple_users
+    
     output_dir = Path(task_config.output_dir)
     return NuggetViewer(
         username=username, db_path=output_dir / "annotation.db",
         load_dir=output_dir,
         use_json=(task_config.load_nugget_from == 'json'),
-        combine_nuggets_from_multiple_users=task_config.combine_nuggets_from_multiple_users,
-        use_revised_nugget_only=task_config.use_revised_nugget_only
+        combine_nuggets_from_multiple_users=from_all_users,
+        use_revised_nugget_only=use_revised_nugget
     )
