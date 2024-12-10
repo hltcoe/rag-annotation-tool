@@ -8,7 +8,7 @@ import streamlit as st
 from page_utils import random_key, draw_pages, stpage, goto_page, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import initialize_managers, SentenceAnnotationManager, get_manager, session_set_default
+from data_manager import SentenceAnnotationManager, get_manager, get_nugget_loader, session_set_default
 
 
 _style_modifier = """
@@ -204,7 +204,7 @@ def task_dashboard(auth_manager: AuthManager):
 
         user_topics = task_config.job_assignment.get( auth_manager.current_user, [] )
 
-        initialize_managers(task_config, auth_manager.current_user)
+        # initialize_managers(task_config, auth_manager.current_user)
 
         st.write(f"## {task_name}")
 
@@ -216,7 +216,7 @@ def task_dashboard(auth_manager: AuthManager):
             st.query_params.page = page
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
-        citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, 'citation_assessment_manager')
+        citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
         for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
 
             n_done = citation_assessment_manager.count_done(topic_id, level='doc_id')
@@ -237,7 +237,10 @@ def task_dashboard(auth_manager: AuthManager):
         if task_config.force_citation_asssessment_before_report:
             st.caption("Can only start assessing report sentences after citation assessments are finished.")
         report_annotation_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
-        report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, 'report_annotation_manager')
+        report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'report_annotation_manager')
+        nugget_loader = get_nugget_loader(
+            task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
+        )
         for topic_id, col in zip(report_annotation_topics, cycle(st.columns(8))):
             
             # TODO: disable ones that haven't finished citation assessments
@@ -245,6 +248,10 @@ def task_dashboard(auth_manager: AuthManager):
             n_done = report_annotation_manager.count_done(topic_id, level='run_id')
             n_job = report_annotation_manager.count_job(topic_id, level='run_id')
             activated = not task_config.force_citation_asssessment_before_report or citation_assessment_manager.is_all_done(topic_id)
+
+            if task_config.use_revised_nugget_only:
+                activated = activated and len(nugget_loader[topic_id]) > 0
+
             col.button(
                 f"Topic {topic_id} ({n_done}/{n_job})", 
                 icon=icon,

@@ -95,6 +95,9 @@ class NuggetSet:
     def groups(self):
         return sorted(set(self.group_assignment.values())) + ["default"]
 
+    def __len__(self):
+        return len(self.nugget_list)
+
     def __contains__(self, key: str):
         return self.get(key) is not None
 
@@ -133,12 +136,38 @@ class NuggetSet:
         for group in self.groups: # sort by group name
             yield group, sorted(inverted_group[group], key=lambda x: x[1]) # sort by question
 
-
     def iter_nuggets(self, only_answers: bool=False):
         yield from (
             (nidx, question, a_dict.keys() if only_answers else a_dict)
             for nidx, (question, a_dict) in enumerate(self.nugget_list)
         )
+
+    def rename_question(self, old_question: str, new_question: str):
+        assert old_question in self
+
+        if new_question not in self:
+            for i in range(len(self.nugget_list)):
+                if self.nugget_list[i][0] == old_question:
+                    self.nugget_list[i] = (new_question, self.nugget_list[i][1])
+                    break
+        else: # need merging
+            target_a_dict = self.get(new_question)
+            for old_a, old_doc_set in self.get(old_question).items():
+                if old_a in target_a_dict:
+                    target_a_dict[old_a] |= old_doc_set
+                else:
+                    target_a_dict[old_a] = old_doc_set
+            self.nugget_list.remove((old_question, self.get(old_question)))
+
+        if old_question in self.group_assignment:
+            self.group_assignment[new_question] = self.group_assignment[old_question]
+            del self.group_assignment[old_question]
+
+    def remove_question(self, question: str):
+        assert question in self
+
+        self.nugget_list.remove( (question, self.get(question)) )
+        del self.group_assignment[question]
 
     def add(self, question: str, doc_answer_pairs: Iterable[Tuple[str, str]]):
         question = question.strip()
@@ -171,9 +200,21 @@ class NuggetSet:
             
             self.get(question)[answer].remove(doc_id)
 
-    def __add__(self, obj: 'NuggetSet'):
+    def remove_answer(self, question: str, answer: str):
+        assert question in self
+        a_dict = self.get(question)
+        assert answer in a_dict
+        del a_dict[answer]
+
+    def clone(self):
         new_nugget_set = self.__class__()
         new_nugget_set.nugget_list = deepcopy(self.nugget_list)
+        new_nugget_set.group_assignment = deepcopy(self.group_assignment)
+
+        return new_nugget_set
+
+    def __add__(self, obj: 'NuggetSet'):
+        new_nugget_set = self.clone()
 
         for q, a_dict in obj.nugget_list:
             if q in new_nugget_set:
@@ -252,7 +293,7 @@ class NuggetSelection(set):
         return pd.DataFrame(sorted(self), columns=['Question', 'Answer'])
 
 
-class NuggetViewer(SqliteManager):
+class NuggetLoader(SqliteManager):
 
     def __init__(
             self, 
@@ -274,16 +315,27 @@ class NuggetViewer(SqliteManager):
         self.combine_nuggets_from_multiple_users = combine_nuggets_from_multiple_users
         self.use_revised_nugget_only = use_revised_nugget_only
     
-    def iter_nugget_sets_from_json(self, topic_id: str):
-        if self.use_revised_nugget_only:
+    def iter_nugget_sets_from_json(
+            self, topic_id: str, 
+            use_revised_nugget_only: bool=None, combine_nuggets_from_multiple_users: bool=None
+        ):
+        use_revised_nugget_only = use_revised_nugget_only \
+            if use_revised_nugget_only is not None else self.use_revised_nugget_only
+        combine_nuggets_from_multiple_users = combine_nuggets_from_multiple_users \
+            if combine_nuggets_from_multiple_users is not None else self.combine_nuggets_from_multiple_users
+
+        if use_revised_nugget_only:
             fns = self.load_dir.glob(f"nuggets_{topic_id}.revised.json")
         else:
-            fns = self.load_dir.glob(f"nuggets_{topic_id}_{"*" if self.combine_nuggets_from_multiple_users else self.username}.json")
+            fns = self.load_dir.glob(f"nuggets_{topic_id}_{"*" if combine_nuggets_from_multiple_users else self.username}.json")
 
         yield from map(lambda fn: NuggetSet.from_json(fn.read_text()), fns)
         
-    def iter_nuggest_sets_from_db(self, topic_id: str):
-        if not self.combine_nuggets_from_multiple_users:
+    def iter_nuggest_sets_from_db(self, topic_id: str, combine_nuggets_from_multiple_users: bool=None):
+        combine_nuggets_from_multiple_users = combine_nuggets_from_multiple_users \
+            if combine_nuggets_from_multiple_users is not None else self.combine_nuggets_from_multiple_users
+        
+        if not combine_nuggets_from_multiple_users:
             records = self.execute_simple(
                 """select nugget_json from nuggets where topic_id = ? and username = ?;""", 
                 (topic_id, self.username)
@@ -295,12 +347,24 @@ class NuggetViewer(SqliteManager):
 
         yield from map(NuggetSet.from_json, records)
         
-    def __getitem__(self, topic_id: str):
+    def get(self, topic_id: str, source: str=None) -> NuggetSet:
+        
+        use_json = self.use_json
+        use_revised_nugget_only = None
+        if source == 'revised':
+            use_json = True
+            use_revised_nugget_only = True
+        elif source == 'db':
+            use_json = False
+            use_revised_nugget_only = None
+
         return sum(
-            (self.iter_nugget_sets_from_json if self.use_json else self.iter_nuggest_sets_from_db)(topic_id),
+            (self.iter_nugget_sets_from_json if use_json else self.iter_nuggest_sets_from_db)(topic_id, use_revised_nugget_only=use_revised_nugget_only),
             NuggetSet()
         )
 
+    def __getitem__(self, topic_id: str):
+        return self.get(topic_id, source=None)
 
 class NuggetSaverManager(SqliteManager):
 
@@ -353,7 +417,10 @@ class NuggetSaverManager(SqliteManager):
         
         with (self.output_dir / f"nuggets_{topic_id}_{self.username}.json").open("w") as fw:
             fw.write(self[topic_id].as_json(indent=4))
-
+        
+    def save_revised_nugget(self, topic_id: str, nugget_to_save: NuggetSet):
+        with (self.output_dir / f"nuggets_{topic_id}.revised.json").open("w") as fw:
+            fw.write(nugget_to_save.as_json(indent=4))
 
 def _flatten_dict(obj: Mapping[str, Mapping]):
     for key, val in obj.items():
@@ -490,41 +557,78 @@ def session_set_default(session_key, default=None):
     return st.session_state[session_key]
 
 # TODO: might want to control what page need to initilize what
-def initialize_managers(task_config: TaskConfig, username: str):
+# def initialize_managers(task_config: TaskConfig, username: str):
+#     return None
+#     output_dir = Path(task_config.output_dir)
+
+#     logger = session_set_default(f'{task_config.name}/logger', lambda : ActivityLogMananger(output_dir / "log.db", username))
+#     session_set_default(
+#         f'{task_config.name}/nugget_manager', 
+#         lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
+#     )
+#     session_set_default(
+#         f'{task_config.name}/citation_assessment_manager', 
+#         lambda : SentenceAnnotationManager(
+#             output_dir / "annotation.db", # could be different
+#             output_dir, logger,
+#             table_name="sent2doc", 
+#             content_obj=task_config.cited_sentences, 
+#             slot_names='annot',
+#             level_names=['topic_id', 'doc_id', 'run_id', 'sent_id']
+#         )
+#     )
+#     session_set_default(
+#         f'{task_config.name}/report_annotation_manager', 
+#         lambda : SentenceAnnotationManager(
+#             output_dir / "annotation.db", # could be different
+#             output_dir, logger,
+#             table_name="sent2nugget", 
+#             content_obj=task_config.report_runs, 
+#             slot_names=('sent_indep', 'nugget'),
+#             level_names=['topic_id', 'run_id', 'sent_id']
+#         )
+#     )
+
+def get_manager(task_config: TaskConfig, username: str, manager_name: str):
     output_dir = Path(task_config.output_dir)
 
     logger = session_set_default(f'{task_config.name}/logger', lambda : ActivityLogMananger(output_dir / "log.db", username))
-    session_set_default(
-        f'{task_config.name}/nugget_manager', 
-        lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
-    )
-    session_set_default(
-        f'{task_config.name}/citation_assessment_manager', 
-        lambda : SentenceAnnotationManager(
-            output_dir / "annotation.db", # could be different
-            output_dir, logger,
-            table_name="sent2doc", 
-            content_obj=task_config.cited_sentences, 
-            slot_names='annot',
-            level_names=['topic_id', 'doc_id', 'run_id', 'sent_id']
-        )
-    )
-    session_set_default(
-        f'{task_config.name}/report_annotation_manager', 
-        lambda : SentenceAnnotationManager(
-            output_dir / "annotation.db", # could be different
-            output_dir, logger,
-            table_name="sent2nugget", 
-            content_obj=task_config.report_runs, 
-            slot_names=('sent_indep', 'nugget'),
-            level_names=['topic_id', 'run_id', 'sent_id']
-        )
-    )
 
-def get_manager(task_config: TaskConfig, manager_name: str):
+    if manager_name == "nugget_manager":
+        return session_set_default(
+            f'{task_config.name}/nugget_manager', 
+            lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
+        )
+
+    if manager_name == "citation_assessment_manager":
+        return session_set_default(
+            f'{task_config.name}/citation_assessment_manager', 
+            lambda : SentenceAnnotationManager(
+                output_dir / "annotation.db", # could be different
+                output_dir, logger,
+                table_name="sent2doc", 
+                content_obj=task_config.cited_sentences, 
+                slot_names='annot',
+                level_names=['topic_id', 'doc_id', 'run_id', 'sent_id']
+            )
+        )
+
+    if manager_name == "report_annotation_manager":
+        return session_set_default(
+            f'{task_config.name}/report_annotation_manager', 
+            lambda : SentenceAnnotationManager(
+                output_dir / "annotation.db", # could be different
+                output_dir, logger,
+                table_name="sent2nugget", 
+                content_obj=task_config.report_runs, 
+                slot_names=('sent_indep', 'nugget'),
+                level_names=['topic_id', 'run_id', 'sent_id']
+            )
+        )
+
     return st.session_state[f"{task_config.name}/{manager_name}"]
 
-def get_nugget_viewer(
+def get_nugget_loader(
         task_config: TaskConfig, username: str=None,
         from_all_users: bool=None, use_revised_nugget: bool=None
     ):
@@ -534,7 +638,7 @@ def get_nugget_viewer(
         from_all_users = task_config.combine_nuggets_from_multiple_users
     
     output_dir = Path(task_config.output_dir)
-    return NuggetViewer(
+    return NuggetLoader(
         username=username, db_path=output_dir / "annotation.db",
         load_dir=output_dir,
         use_json=(task_config.load_nugget_from == 'json'),

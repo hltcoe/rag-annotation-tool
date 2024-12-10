@@ -6,7 +6,7 @@ import json
 from page_utils import stpage, draw_bread_crumb, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import NuggetSelection, SentenceAnnotationManager, initialize_managers, session_set_default, get_manager, get_nugget_viewer
+from data_manager import NuggetSelection, SentenceAnnotationManager, session_set_default, get_manager, get_nugget_loader
 
 
 
@@ -18,11 +18,11 @@ def report_annotation_page(auth_manager: AuthManager):
 
     current_topic = st.query_params['topic']
     task_config: TaskConfig = st.session_state['task_configs'][st.query_params['task']]
-    initialize_managers(task_config, auth_manager.current_user)
+    # initialize_managers(task_config, auth_manager.current_user)
 
-    report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, 'report_annotation_manager')
+    report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'report_annotation_manager')
     sorted_report_list = sorted(task_config.report_runs[current_topic].keys())
-    nugget_viewer = get_nugget_viewer(task_config, auth_manager.current_user)
+    nugget_loader = get_nugget_loader(task_config, auth_manager.current_user)
 
     run_id_offset = draw_bread_crumb(
         crumbs=[
@@ -151,7 +151,7 @@ def report_annotation_page(auth_manager: AuthManager):
         st.write("")
         st.write("**Nugget Selection**")
         
-        nuggets_for_selection = nugget_viewer[current_topic].as_nugget_dict(only_answers=True)
+        nuggets_for_selection = nugget_loader[current_topic].as_nugget_dict(only_answers=True)
         question_select = st.selectbox(
             label="Select nugget question",
             key="nugget_question",
