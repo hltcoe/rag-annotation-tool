@@ -33,6 +33,7 @@ def report_annotation_page(auth_manager: AuthManager):
         n_jobs=len(sorted_report_list), 
         n_done=report_annotation_manager.count_done(current_topic, level='run_id'),
         key=f'{task_config.name}/report/{current_topic}/current_report_offset',
+        check_done=lambda idx: report_annotation_manager.is_all_done(current_topic, sorted_report_list[idx])
     )
 
     run_id = sorted_report_list[run_id_offset]

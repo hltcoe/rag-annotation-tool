@@ -58,6 +58,7 @@ def citation_assessment_page(auth_manager: AuthManager):
         n_jobs=len(sorted_doc_list), 
         n_done=citation_assessment_manager.count_done(current_topic, level='doc_id'),
         key=f'{task_config.name}/citation/{current_topic}/current_doc_offset',
+        check_done=lambda idx: citation_assessment_manager.is_all_done(current_topic, sorted_doc_list[idx])
     )
 
 

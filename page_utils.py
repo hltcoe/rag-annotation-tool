@@ -60,7 +60,9 @@ def goto_page(page_name, collapse_sidebar: bool=False, **kwargs):
 
 def draw_bread_crumb(
         crumbs: List[str], n_jobs: int, n_done: int, 
-        key: str, icon=":material/double_arrow:"
+        key: str, 
+        check_done: Callable,
+        icon=":material/double_arrow:"
     ):
     session_set_default(key, 0)
 
@@ -69,6 +71,14 @@ def draw_bread_crumb(
             st.session_state[key] -= 1
         elif st.session_state.doc_nav == 'next':
             st.session_state[key] += 1
+        elif st.session_state.doc_nav == 'next_unfinished':
+            l = list(range(n_jobs))
+            for idx in l[st.session_state[key]+1:] + l[:st.session_state[key]+1]:
+                if not check_done(idx):
+                    st.session_state[key] = idx
+                    break
+            else:
+                st.toast("Everything is done here!")
         
         st.session_state[key] = max(st.session_state[key], 0)
         st.session_state[key] = min(st.session_state[key], n_jobs-1)
@@ -76,7 +86,7 @@ def draw_bread_crumb(
         st.session_state.doc_nav = None
         
 
-    crumb_col, nav_col = st.columns([7, 1], vertical_alignment='center')
+    crumb_col, nav_col = st.columns([4, 1], vertical_alignment='center')
 
     # TODO: make things clickable and add modal for selecting doc and topic
     crumb_col.write(f" {icon} ".join(
@@ -86,8 +96,12 @@ def draw_bread_crumb(
 
     nav_col.segmented_control(
         "doc_nav",
-        options=['back', 'next'],
-        format_func={'back': ":material/arrow_back: Back", 'next': ":material/arrow_forward: Next"}.__getitem__,
+        options=['back', 'next_unfinished', 'next'],
+        format_func={
+            'back': ":material/arrow_back: Back", 
+            'next_unfinished': ':material/forward: Next Unfinished', 
+            'next': ":material/arrow_forward: Next"
+        }.__getitem__,
         selection_mode="single",
         label_visibility='collapsed', 
         key='doc_nav',
