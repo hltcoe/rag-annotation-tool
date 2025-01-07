@@ -1,0 +1,19 @@
+services:
+  rag:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+
+  nginx:
+    image: "nginx:mainline-alpine-slim"
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
