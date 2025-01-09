@@ -88,15 +88,15 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
 
     def _on_nugget_select(sent_id, question, answers):
-        questions = answers if question == "*Other Options*" else [question]*len(answers)
+        # questions = answers if question == "*Other Options*" else [question]*len(answers)
         
         if task_config.sentence_allow_multiple_nuggets:
             current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
         else:
             current_nugget = NuggetSelection()
         
-        for q, a in zip(questions, answers):
-            current_nugget.add((q, a))
+        for a in answers:
+            current_nugget.add((question, a))
             
         nugget_alignment_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
 
@@ -113,6 +113,9 @@ def nugget_alignment_page(auth_manager: AuthManager):
         
         active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']        
         nuggets_for_selection = nugget_loader[current_topic].clone()
+        for q in nuggets_for_selection.get_all_questions():
+            nuggets_for_selection.add(q, [("_", "*Other acceptable answer*")])
+
         nuggets_for_selection.add("*Other Options*", [
             ("_", f"*{o}*")
             for o in task_config.additional_nugget_options

@@ -143,6 +143,11 @@ class NuggetSet:
             for nidx, (question, a_dict) in enumerate(self.nugget_list)
         )
 
+    def get_all_questions(self):
+        return [
+            q for q, _ in self.nugget_list
+        ]
+
     def rewrite_question(self, old_question: str, new_question: str):
         assert old_question in self
 
