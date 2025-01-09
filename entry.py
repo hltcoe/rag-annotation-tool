@@ -74,19 +74,24 @@ from stage_nugget_alignment import nugget_alignment_page
 @stpage(name='login')
 def login_page(auth_manager: AuthManager):
     
-    _, col, _ = st.columns([1, 1, 1])
-    with col.form("my_form"):
-        st.write("## Login")
-        if 'logout_message' in st.session_state and st.session_state['logout_message'] is not None:
-            st.info(st.session_state['logout_message'])
-            st.session_state['logout_message'] = None
+    # _, col, _ = st.columns([1, 1, 1])
+    @st.dialog(title="Login")
+    def login_modal():
+        with st.form("my_form"):
+            # st.write("## Login")
+            if 'logout_message' in st.session_state and st.session_state['logout_message'] is not None:
+                st.info(st.session_state['logout_message'])
+                st.session_state['logout_message'] = None
 
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button('Login', type='primary')
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submit = st.form_submit_button('Login', type='primary')
 
-    if submit and auth_manager.login(username, password):
-        st.rerun()
+        if submit and auth_manager.login(username, password):
+            st.rerun()
+    
+    if auth_manager.current_user is None:
+        login_modal()
 
 @st.dialog("Change Password")
 def change_password_modal(auth_manager: AuthManager, logout_fn):
@@ -337,6 +342,8 @@ def draw_sidebar():
 
             st.button("Logout", icon=":material/logout:", on_click=logout)
         
+        else:
+            st.button("Login", icon=":material/login:", args=("login", ), on_click=goto_page)
 
 
 
