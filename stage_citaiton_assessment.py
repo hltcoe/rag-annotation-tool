@@ -6,22 +6,8 @@ from pathlib import Path
 from page_utils import stpage, draw_bread_crumb, toggle_button, get_auth_manager, random_key, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import NuggetSaverManager, NuggetSet, SentenceAnnotationManager, session_set_default, get_manager
+from data_manager import NuggetSaverManager, SentenceAnnotationManager, get_manager, get_doc_content
 from nugget_editor import draw_nugget_editor
-
-import ir_datasets as irds
-
-
-@st.cache_data(ttl=600)
-def _get_doc_content(service, collection_id, doc_id):
-    if service == 'ir_datasets':
-        doc = irds.load(collection_id).docs.lookup(doc_id)
-        return {
-            'title': doc.title if hasattr(doc, 'title') else "",
-            'text': doc.default_text()
-        }
-    # TODO implement other stuff
-    return {'title': "", "text": f"Suppose to be {service} {collection_id} // {doc_id}"}
 
 
 @st.dialog("Full Report", width="large")
@@ -67,51 +53,20 @@ def citation_assessment_page(auth_manager: AuthManager):
     
     doc_id = sorted_doc_list[current_doc_offset]
 
+    with st.container(height=100):
+        st.write(f"**Topic {current_topic}**")
+        for key, val in task_config.requests[current_topic].items():
+            st.write(f"**{key.replace('_', ' ').title()}**: {val}")
+       
     doc_col, annotation_col = st.columns([4, 6])
 
-    
-    with doc_col.container(height=450):
-        doc_content = _get_doc_content(task_config.doc_service, task_config.collection_id, doc_id)
+    with doc_col.container(height=620):
+        doc_content = get_doc_content(task_config.doc_service, task_config.collection_id, doc_id)
         if doc_content['title'] != "":
             st.write(f"**{doc_content['title']}**")
         st.caption(f"Doc ID: {doc_id}")
         st.write(doc_content['text'])
-    
-    with doc_col.container(height=250):
-        st.write(f"**Topic {current_topic}**")
-        for key, val in task_config.requests[current_topic].items():
-            st.write(f"**{key.replace('_', ' ').title()}**: {val}")
-            
-    def _on_select_nugget_answer(doc_id, question, answers):
-        nugget_set.add(question, [ (doc_id, answer) for answer in answers ])
-        nugget_manager.flush(current_topic)
-
-    def _on_unselect_nugget_answer(doc_id, question, deleting_answers):
-        nugget_set.remove(question, doc_id, deleting_answers)
-        nugget_manager.flush(current_topic)
-    
-    def _on_assign_group(question, group_name):
-        nugget_set.set_group(question, group_name)
-        nugget_manager.flush(current_topic)
-
-    def _on_rename_group(old_group_name, new_group_name):
-        nugget_set.rename_group(old_group_name, new_group_name)
-        nugget_manager.flush(current_topic)
-
-
-    with annotation_col.container(height=450):
-        draw_nugget_editor(
-            nugget_set, 
-            current_doc_id=doc_id,
-            title="Nugget Editor and Grouper",
-            key_prefix=f'{task_config.name}/citation/{current_topic}/',
-            on_select_nugget_answer=_on_select_nugget_answer,
-            on_unselect_nugget_answer=_on_unselect_nugget_answer,
-            on_assign_group=_on_assign_group,
-            on_rename_group=_on_rename_group
-        )
-
-    
+        
     current_content_iter = citation_assessment_manager[current_topic, doc_id]
 
     _make_key = lambda current_topic, doc_id, run_id, sent_id: f"supportive {current_topic} {doc_id} {run_id} {sent_id}"
@@ -123,7 +78,7 @@ def citation_assessment_page(auth_manager: AuthManager):
         )
         
 
-    with annotation_col.container(height=250):
+    with annotation_col.container(height=400):
         if citation_assessment_manager.is_all_done(current_topic, doc_id):
             st.html('<div class="is_done_flag"></div>')
 
@@ -157,4 +112,31 @@ def citation_assessment_page(auth_manager: AuthManager):
                 on_change=_sent_on_select
             )
 
+    def _on_select_nugget_answer(doc_id, question, answers):
+        nugget_set.add(question, [ (doc_id, answer) for answer in answers ])
+        nugget_manager.flush(current_topic)
 
+    def _on_unselect_nugget_answer(doc_id, question, deleting_answers):
+        nugget_set.remove(question, doc_id, deleting_answers)
+        nugget_manager.flush(current_topic)
+    
+    def _on_assign_group(question, group_name):
+        nugget_set.set_group(question, group_name)
+        nugget_manager.flush(current_topic)
+
+    def _on_rename_group(old_group_name, new_group_name):
+        nugget_set.rename_group(old_group_name, new_group_name)
+        nugget_manager.flush(current_topic)
+
+    with annotation_col.container(height=205, border=None):
+        draw_nugget_editor(
+            nugget_set, 
+            current_doc_id=doc_id,
+            title="Nugget Editor and Grouper",
+            key_prefix=f'{task_config.name}/citation/{current_topic}/',
+            on_select_nugget_answer=_on_select_nugget_answer,
+            on_unselect_nugget_answer=_on_unselect_nugget_answer,
+            on_assign_group=_on_assign_group,
+            on_rename_group=_on_rename_group,
+            allow_nugget_question_creation=False
+        )

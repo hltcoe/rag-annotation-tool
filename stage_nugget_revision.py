@@ -10,9 +10,8 @@ from data_manager import NuggetSaverManager, NuggetSet, session_set_default, get
 from nugget_editor import draw_nugget_editor
 
 
-
+# @st.fragment
 @stpage("nugget_revision", require_login=True, require_admin=True)
-@st.fragment
 def nugget_revision_page(auth_manager: AuthManager):
     if 'topic' not in st.query_params:
         st.query_params.clear()
@@ -21,20 +20,18 @@ def nugget_revision_page(auth_manager: AuthManager):
     task_config: TaskConfig = st.session_state['task_configs'][st.query_params['task']]
     # initialize_managers(task_config, auth_manager.current_user)
 
-    key_prefix = f'{task_config.name}/nugget_revision/{current_topic}/'
+    key_prefix = f'{task_config.name}/nugget_revision/{current_topic}'
 
     nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager')
     nugget_loader = get_nugget_loader(
         task_config, auth_manager.current_user, from_all_users=True, use_revised_nugget=False
     )
 
-    # TODO setup buffer for undo and redo
-    # TODO: setup saving mechanism
     session_set_default(f"{key_prefix}/redo_buffer", [])
     session_set_default(f"{key_prefix}/redo_pointer", -1)
     def _push_new_action(to_save):
         current_pointer = st.session_state[f"{key_prefix}/redo_pointer"]
-        if current_pointer == 0:
+        if current_pointer <= 0:
             st.session_state[f"{key_prefix}/redo_buffer"].append(to_save)
         else:
             old_buffer: list = st.session_state[f"{key_prefix}/redo_buffer"]
@@ -143,10 +140,45 @@ def nugget_revision_page(auth_manager: AuthManager):
     session_set_default(f"{key_prefix}/edit_nuget_set", _init_nugget)
     edit_nuget_set: NuggetSet = st.session_state[f"{key_prefix}/edit_nuget_set"]
 
-    def _on_select_nugget_answer(doc_id, question, answers):
+
+    @st.dialog(title="Rewrite Or Delete Answer")
+    def _rewrite_answer_modal(doc_id, question, answers):
         assert len(answers) == 1
-        edit_nuget_set.remove_answer(question, answers[0])
-        _push_new_action(edit_nuget_set.clone())
+        old_answer = answers[0]
+
+        st.write(f"Old answer: **{old_answer}**")
+        
+        
+        new_answer = st.text_input(label="New answer", key=f"{key_prefix}/rewrite_answer/new_answer")
+
+        changed = False
+        left_col, _, right_col = st.columns(3)
+        if left_col.button(label="Rewrite", use_container_width=True):
+            edit_nuget_set.rewrite_answer(question, old_answer, new_answer)
+            changed = True
+
+        if right_col.button(label="Delete", use_container_width=True):
+            edit_nuget_set.remove_answer(question, old_answer)
+            changed = True
+
+
+        if changed:
+            _push_new_action(edit_nuget_set.clone())
+
+            for key in st.session_state.keys():
+                if key.startswith(f"{key_prefix}/nugget_editor/nugget/") and key.endswith("/select"):
+                    del st.session_state[key]
+            
+            st.rerun()
+    
+
+    def _on_select_nugget_answer(doc_id, question, answers):
+        _rewrite_answer_modal(doc_id, question, answers)
+        
+        # return True
+        # assert len(answers) == 1
+        # edit_nuget_set.remove_answer(question, answers[0])
+        # _push_new_action(edit_nuget_set.clone())
 
     def _on_assign_group(question, group_name):
         edit_nuget_set.set_group(question, group_name)
@@ -156,8 +188,8 @@ def nugget_revision_page(auth_manager: AuthManager):
         edit_nuget_set.rename_group(old_group_name, new_group_name)
         _push_new_action(edit_nuget_set.clone())
     
-    def _on_rename_question(old_question, new_question):
-        edit_nuget_set.rename_question(old_question, new_question)
+    def _on_rewrite_question(old_question, new_question):
+        edit_nuget_set.rewrite_question(old_question, new_question)
         _push_new_action(edit_nuget_set.clone())
 
     with editor_col:
@@ -170,8 +202,8 @@ def nugget_revision_page(auth_manager: AuthManager):
             allow_nugget_question_creation=False,
             allow_nugget_group_edit=True,
             allow_nugget_question_edit=True,
-            on_select_nugget_answer=_on_select_nugget_answer,
+            on_select_nugget_answer=_rewrite_answer_modal,
             on_assign_group=_on_assign_group,
             on_rename_group=_on_rename_group,
-            on_rename_question=_on_rename_question
+            on_rewrite_question=_on_rewrite_question
         )
