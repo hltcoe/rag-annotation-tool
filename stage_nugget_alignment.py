@@ -28,7 +28,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
         crumbs=[
             st.query_params.task, "Citation Assessment", 
             f"Topic {st.query_params.topic}",
-            "Report #{current_idx} ({n_done}/{n_jobs} Documents Done)"
+            "Report #{current_idx} ({n_done}/{n_jobs} Reports Done)"
         ],
         n_jobs=len(sorted_report_list), 
         n_done=nugget_alignment_manager.count_done(current_topic, level='run_id'),
@@ -100,8 +100,8 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
     def _on_nugget_select():
         sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-        if st.session_state['nugget_question'] == "N/A":
-            st.session_state["nugget_answer"] = "N/A"
+        if st.session_state['nugget_question'] in task_config.additional_nugget_options:
+            st.session_state["nugget_answer"] = st.session_state['nugget_question']
         
         if "nugget_answer" not in st.session_state or st.session_state['nugget_answer'] is None:
             return
@@ -135,33 +135,34 @@ def nugget_alignment_page(auth_manager: AuthManager):
     with nugget_col.container(height=600):
         # key = _make_key(current_topic, run_id, sent_id)
 
-        st.write("**Annotate for the active sentence**")
+        # st.write("**Annotate for the active sentence**")
         active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
 
-        # HACK hardcoding sent_indep here is not cool...
-        pre_select = nugget_alignment_manager[current_topic, run_id, active_sent_id]['sent_indep']
-        if pd.isna(pre_select):
-            pre_select = None
+        # # HACK hardcoding sent_indep here is not cool...
+        # pre_select = nugget_alignment_manager[current_topic, run_id, active_sent_id]['sent_indep']
+        # if pd.isna(pre_select):
+        #     pre_select = None
 
-        st.segmented_control(
-            label="Select applicable option for the active sentence",
-            key='sent_indep',
-            selection_mode="single", 
-            options=task_config.sentence_independent_option,
-            format_func=str.title,
-            default=pre_select,
-            args=('sent_indep', ),
-            on_change=_on_option_select
-        )
+        # st.segmented_control(
+        #     label="Select applicable option for the active sentence",
+        #     key='sent_indep',
+        #     selection_mode="single", 
+        #     options=task_config.sentence_independent_option,
+        #     format_func=str.title,
+        #     default=pre_select,
+        #     args=('sent_indep', ),
+        #     on_change=_on_option_select
+        # )
 
         st.write("")
-        st.write("**Nugget Selection**")
+        st.write("**Nugget Selection For The Active Sentence**")
         
         nuggets_for_selection = nugget_loader[current_topic].as_nugget_dict(only_answers=True)
         question_select = st.selectbox(
             label="Select nugget question",
             key="nugget_question",
-            options=sorted(nuggets_for_selection.keys()) + ["N/A"],
+            options=sorted(nuggets_for_selection.keys()) + task_config.additional_nugget_options,
+            format_func=lambda x: f"**{x}**" if x in task_config.additional_nugget_options else x,
             index=None,
             placeholder="...",
             on_change=_on_nugget_select
@@ -172,7 +173,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
             st.selectbox(
                 label="Select nugget answer",
                 key="nugget_answer",
-                options=sorted(nuggets_for_selection[question_select]) + ["Other acceptable answer"],
+                options=sorted(nuggets_for_selection[question_select]) + ["**Other acceptable answer**"],
                 index=None,
                 placeholder="...",
                 on_change=_on_nugget_select

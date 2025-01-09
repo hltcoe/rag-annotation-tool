@@ -38,6 +38,12 @@ class TaskConfig:
     report_runs_path: str = None # a json with {'topic_id: {'run_id': {'sen_id': 'sentence_text'}}, ...}
     sentence_independent_option: List[str] = field(default_factory=lambda :["no need citations", "need citation"])
     sentence_allow_multiple_nuggets: bool = False
+    additional_nugget_options: List[str] = field(default_factory=lambda :[
+        "Other crucial nugget to the request",
+        "Topical nugget",
+        "Irrelevant nugget",
+        "No nugget found"
+    ])
     
     collection_id: str = None    
     doc_service: Literal['ir_datasets', 'http_api'] = 'ir_datasets'

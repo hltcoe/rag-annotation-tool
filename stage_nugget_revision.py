@@ -88,12 +88,14 @@ def nugget_revision_page(auth_manager: AuthManager):
             st.session_state[f"{key_prefix}/source"] = "json"
         elif selection == "saved_revised":
             st.session_state[f"{key_prefix}/source"] = "revised"
+        elif selection == 'preloaded':
+            st.session_state[f"{key_prefix}/source"] = "preload"
 
 
     source_sel_col, action_col = st.columns(column_ratio, vertical_alignment="center")
     source_sel_col.selectbox(
         "select_source",
-        options=["raw", "saved_revised"],
+        options=["raw", "saved_revised", "preloaded"],
         format_func=lambda x: " ".join(x.split("_") + ["nuggets"]).title(),
         index=0,
         key=f"{key_prefix}/source_selector",

@@ -379,6 +379,8 @@ class NuggetLoader(SqliteManager):
         elif source == 'db':
             use_json = False
             use_revised_nugget_only = None
+        elif source == 'preload':
+            return NuggetSet.from_json( (self.load_dir / f"nuggets_{topic_id}.preload.json").read_text() )
 
         return sum(
             (self.iter_nugget_sets_from_json if use_json else self.iter_nuggest_sets_from_db)(topic_id, use_revised_nugget_only=use_revised_nugget_only),
@@ -639,7 +641,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
                 output_dir, logger,
                 table_name="sent2nugget", 
                 content_obj=task_config.report_runs, 
-                slot_names=('sent_indep', 'nugget'),
+                slot_names=('nugget', ),
                 level_names=['topic_id', 'run_id', 'sent_id']
             )
         )

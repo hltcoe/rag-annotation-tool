@@ -9,10 +9,12 @@ if __name__ == '__main__':
     parser.add_argument('--input_reports', type=str, nargs='+', required=True)
     parser.add_argument('--output_dir', type=str, default='./resources')
 
+    parser.add_argument('--construct_doc_pool', action='store_true', default=False)
+
     args = parser.parse_args()
 
     all_runs = {
-        f.stem: [ json.loads(l) for l in f.open() ]
+        (f.stem if f.suffix == ".jsonl" else f.name): [ json.loads(l) for l in f.open() ]
         for f in map(Path, args.input_reports)
     }
 
@@ -57,3 +59,10 @@ if __name__ == '__main__':
 
     with (output_dir / f"{args.name}.citation-to-sentences.json").open('w') as fw:
         json.dump(data, fw)
+
+    if args.construct_doc_pool:
+        with (output_dir / f"{args.name}.document_pool.json").open('w') as fw:
+            json.dump({
+                topic_id: list(d.keys())
+                for topic_id, d in data.items()
+            }, fw)
