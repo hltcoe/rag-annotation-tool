@@ -7,7 +7,7 @@ from page_utils import stpage, draw_bread_crumb, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
 from data_manager import NuggetSelection, SentenceAnnotationManager, session_set_default, get_manager, get_nugget_loader
-
+from nugget_editor import draw_nugget_editor
 
 
 @stpage(name="nugget_alignment", require_login=True)
@@ -43,22 +43,18 @@ def nugget_alignment_page(auth_manager: AuthManager):
         for key, val in task_config.requests[current_topic].items():
             st.write(f"**{key.replace('_', ' ').title()}**: {val}")
 
-    nugget_col, annotation_col = st.columns([5, 5])
-
-    all_sent_ids = sorted([ sent_id for sent_id, _  in nugget_alignment_manager[current_topic, run_id]])
-    
+    annotation_col, nugget_col = st.columns([5, 5])    
 
     def _on_sent_select(sent_id):
         st.session_state[f'active_sent/{current_topic}/{run_id}'] = sent_id
 
 
-    # current_content_iter = nugget_alignment_manager[current_topic, run_id]
     with annotation_col.container(height=600, key="sentence_selection"):
         if nugget_alignment_manager.is_all_done(current_topic, run_id):
             st.html('<div class="is_done_flag"></div>')
 
         
-        st.write("**Annotate for the active sentence in red box in the left panel**")
+        st.write("**Select applicable nuggets for the active sentence in marked in red at the right panel**")
 
         sent_iter = lambda : sorted(nugget_alignment_manager[current_topic, run_id], key=lambda x: int(x[0]))
         
@@ -91,105 +87,53 @@ def nugget_alignment_page(auth_manager: AuthManager):
             # st.write(content)
 
 
-    def _on_option_select(slot):
-        sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-
-        nugget_alignment_manager.annotate(
-            key=(current_topic, run_id, sent_id), slot=slot, annotation=st.session_state[slot]
-        )
-
-    def _on_nugget_select():
-        sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-        if st.session_state['nugget_question'] in task_config.additional_nugget_options:
-            st.session_state["nugget_answer"] = st.session_state['nugget_question']
-        
-        if "nugget_answer" not in st.session_state or st.session_state['nugget_answer'] is None:
-            return
+    def _on_nugget_select(sent_id, question, answers):
+        questions = answers if question == "*Other Options*" else [question]*len(answers)
         
         if task_config.sentence_allow_multiple_nuggets:
             current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
         else:
             current_nugget = NuggetSelection()
         
-        current_nugget.add((st.session_state['nugget_question'], st.session_state['nugget_answer']))
+        for q, a in zip(questions, answers):
+            current_nugget.add((q, a))
+            
         nugget_alignment_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
 
-        st.session_state['nugget_question'] = None
-        st.session_state['nugget_answer'] = None
-
-    def _on_nugget_unselect():
-        sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-
-        assert len(st.session_state['nugget_unselect']['edited_rows']) == 1
-        removing_row_idx, _action = next(iter(st.session_state['nugget_unselect']['edited_rows'].items()))
-        assert _action['delete']
-
+    def _on_nugget_unselect(sent_id, question, answers_to_remove):
         current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
 
-        removing_row = current_nugget.as_dataframe().iloc[removing_row_idx]
-        current_nugget.remove((removing_row['Question'], removing_row['Answer']))
+        for a in answers_to_remove:
+            current_nugget.remove((question, a))
 
         nugget_alignment_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
 
 
-    with nugget_col.container(height=600):
-        # key = _make_key(current_topic, run_id, sent_id)
-
-        # st.write("**Annotate for the active sentence**")
-        active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']
-
-        # # HACK hardcoding sent_indep here is not cool...
-        # pre_select = nugget_alignment_manager[current_topic, run_id, active_sent_id]['sent_indep']
-        # if pd.isna(pre_select):
-        #     pre_select = None
-
-        # st.segmented_control(
-        #     label="Select applicable option for the active sentence",
-        #     key='sent_indep',
-        #     selection_mode="single", 
-        #     options=task_config.sentence_independent_option,
-        #     format_func=str.title,
-        #     default=pre_select,
-        #     args=('sent_indep', ),
-        #     on_change=_on_option_select
-        # )
-
-        st.write("")
-        st.write("**Nugget Selection For The Active Sentence**")
+    with nugget_col.container(height=600, border=False):
         
-        nuggets_for_selection = nugget_loader[current_topic].as_nugget_dict(only_answers=True)
-        question_select = st.selectbox(
-            label="Select nugget question",
-            key="nugget_question",
-            options=sorted(nuggets_for_selection.keys()) + task_config.additional_nugget_options,
-            format_func=lambda x: f"**{x}**" if x in task_config.additional_nugget_options else x,
-            index=None,
-            placeholder="...",
-            on_change=_on_nugget_select
+        active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']        
+        nuggets_for_selection = nugget_loader[current_topic].clone()
+        nuggets_for_selection.add("*Other Options*", [
+            ("_", f"*{o}*")
+            for o in task_config.additional_nugget_options
+        ])
+
+        # add selected nuggets
+        for q, a in nugget_alignment_manager[current_topic, run_id, active_sent_id]['nugget']:
+            nuggets_for_selection.add(q, [(active_sent_id, a)])
+
+        draw_nugget_editor(
+            nuggets_for_selection,
+            # title="Nugget Selection For The Active Sentence",
+            current_doc_id=active_sent_id,
+            show_counts=False,
+            key_prefix="nugget_selector",
+            allow_nugget_answer_selection=True,
+            allow_nugget_answer_creation=False,
+            allow_nugget_question_creation=False,
+            allow_nugget_group_edit=False,
+            allow_nugget_question_edit=False,
+            on_select_nugget_answer=_on_nugget_select,
+            on_unselect_nugget_answer=_on_nugget_unselect
         )
 
-        if question_select is not None:
-
-            st.selectbox(
-                label="Select nugget answer",
-                key="nugget_answer",
-                options=sorted(nuggets_for_selection[question_select]) + ["**Other acceptable answer**"],
-                index=None,
-                placeholder="...",
-                on_change=_on_nugget_select
-            )
-
-        st.write("**Selected Nuggets**")
-
-        st.data_editor(
-            nugget_alignment_manager[current_topic, run_id, active_sent_id]['nugget'].as_dataframe().assign(delete=False),
-            column_order=["delete", "Question", "Answer"],
-            disabled=("Question", "Answer"),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "delete": st.column_config.CheckboxColumn("Delete?", width=None, default=False)
-            },
-            key="nugget_unselect",
-            on_change=_on_nugget_unselect
-        )

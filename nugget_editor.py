@@ -10,6 +10,7 @@ from data_manager import NuggetSet
 def draw_nugget_editor(
         nugget_set: NuggetSet, current_doc_id: str, key_prefix: str,
         title: str = None,
+        show_counts: bool = True,
         on_select_nugget_answer: Callable=None, on_unselect_nugget_answer: Callable=None,
         on_assign_group: Callable=None, on_rename_group: Callable=None,
         on_rewrite_question: Callable=None,
@@ -127,7 +128,7 @@ def draw_nugget_editor(
             elif allow_nugget_answer_creation:
                 q_col, a_col, input_col = group_container.columns([2,2,3], vertical_alignment='center')
             else:
-                q_col, a_col = group_container.columns([2,5], vertical_alignment='center')
+                q_col, a_col = group_container.columns([5,5], vertical_alignment='center')
             
             if allow_nugget_question_edit:
                 if q_col.toggle(question, key=f"{key_prefix}/nugget/{nidx}/question_toggle"):
@@ -141,12 +142,19 @@ def draw_nugget_editor(
                     )
             else:
                 q_col.write(question)
+                
+            def _display_answers(k):
+                if k == "+":
+                    return ":material/add:"
+                if show_counts:
+                    return f"{k} ({len(a_dict[k])})"
+                return k
             
             selected_answers = [ a for a, dids in a_dict.items() if current_doc_id in dids ]
             answer_selection = a_col.pills(
                 label="answers", 
                 options=sorted(a_dict.keys()) + (["+"] if allow_nugget_answer_creation else []),
-                format_func=lambda k: ":material/add:" if k == "+" else f"{k} ({len(a_dict[k])})",
+                format_func=_display_answers,
                 default=selected_answers,
                 selection_mode='multi',
                 label_visibility='collapsed',
