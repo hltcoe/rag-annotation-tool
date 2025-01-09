@@ -6,13 +6,13 @@ from page_utils import toggle_button, random_key
 from data_manager import NuggetSet
 
 
-@st.fragment()
+# @st.fragment()
 def draw_nugget_editor(
         nugget_set: NuggetSet, current_doc_id: str, key_prefix: str,
         title: str = None,
         on_select_nugget_answer: Callable=None, on_unselect_nugget_answer: Callable=None,
         on_assign_group: Callable=None, on_rename_group: Callable=None,
-        on_rename_question: Callable=None,
+        on_rewrite_question: Callable=None,
         highlight_group_name: bool = True,
         allow_nugget_answer_selection: bool = True,
         allow_nugget_answer_creation: bool = True,
@@ -63,8 +63,8 @@ def draw_nugget_editor(
         old_question = nugget_set[nidx][0]
         new_question = st.session_state[text_key]
 
-        if old_question != new_question and on_rename_question:
-            on_rename_question(old_question, new_question)
+        if old_question != new_question and on_rewrite_question:
+            on_rewrite_question(old_question, new_question)
     
         st.session_state[toggle_key] = False
 
@@ -142,19 +142,22 @@ def draw_nugget_editor(
             else:
                 q_col.write(question)
             
+            selected_answers = [ a for a, dids in a_dict.items() if current_doc_id in dids ]
             answer_selection = a_col.pills(
                 label="answers", 
                 options=sorted(a_dict.keys()) + (["+"] if allow_nugget_answer_creation else []),
                 format_func=lambda k: ":material/add:" if k == "+" else f"{k} ({len(a_dict[k])})",
-                default=[ a for a, dids in a_dict.items() if current_doc_id in dids ],
+                default=selected_answers,
                 selection_mode='multi',
                 label_visibility='collapsed',
                 key=f"{key_prefix}/nugget/{nidx}/select",
-                args=(nidx, f"{key_prefix}/nugget/{nidx}/select"),
-                on_change=_modify_answer
+                # args=(nidx, f"{key_prefix}/nugget/{nidx}/select"),
+                # on_change=_modify_answer
             )
+            if set(answer_selection) != set(selected_answers):
+                _modify_answer(nidx, f"{key_prefix}/nugget/{nidx}/select")
 
-            if "+" in answer_selection:
+            if  "+" in answer_selection:
                 input_col.text_input(
                     label="add_answer",
                     placeholder="New answer...",

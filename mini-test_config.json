@@ -10,6 +10,7 @@
         "problem_statement",
         "background"
     ],
+    "doc_pools_path": "./resources/mini-test.document_pool.json",
     "cited_sentences_path": "./resources/mini-test.citation-to-sentences.json",
     "sentence_to_document_options": [
         "not supported",

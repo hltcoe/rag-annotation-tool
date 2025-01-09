@@ -14,7 +14,7 @@ from data_manager import SentenceAnnotationManager, get_manager, get_nugget_load
 _style_modifier = """
 <style>
 [data-testid="stMainBlockContainer"] {
-    padding: 6rem 2rem 0rem
+    padding: 4rem 2rem 0rem
 }
 
 [data-testid="stVerticalBlockBorderWrapper"]:has(.is_done_flag) {
@@ -30,6 +30,10 @@ _style_modifier = """
 .st-key-sentence_selection button {
     justify-content: left;
     text-align: left;
+}
+
+button[kind="pills"] {
+    overflow: unset
 }
 
 
@@ -61,9 +65,10 @@ def init_app(args):
 
 
 # just import should be fine...
+from stage_nugget_creation import nugget_creation_page
 from stage_citaiton_assessment import citation_assessment_page
-from stage_report_annotation import report_annotation_page
 from stage_nugget_revision import nugget_revision_page
+from stage_nugget_alignment import nugget_alignment_page
 
 
 @stpage(name='login')
@@ -208,12 +213,42 @@ def task_dashboard(auth_manager: AuthManager):
 
         st.write(f"## {task_name}")
 
-        st.write("### Citation Assessments and Support")
+        st.write("### Step 1: Nugget Creation")
 
-        def _jump(page, topic_id):
-            st.session_state['sidebar_state'] = "collapsed"
-            st.query_params.topic = topic_id
-            st.query_params.page = page
+        citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
+        relevance_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
+        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
+
+            n_done = relevance_assessment_manager.count_done(topic_id, level='doc_id')
+            # n_job = len(task_config.cited_sentences[topic_id])
+            n_job = relevance_assessment_manager.count_job(topic_id, level='doc_id')
+            icon = ':material/check_box_outline_blank:' if not relevance_assessment_manager.is_all_done(topic_id) else ':material/select_check_box:'
+            col.button(
+                f"Topic {topic_id} ({n_done}/{n_job})", 
+                icon=icon,
+                use_container_width=True, 
+                key=f'{task_config.name}/entry/creation/{topic_id}',
+                args=("nugget_creation", ), 
+                kwargs={'topic': topic_id, "collapse_sidebar": True},
+                on_click=goto_page
+            )
+
+
+        if auth_manager.is_admin:
+            st.write("### Step 2: Nugget Revision (Admin Only)")
+            all_loaded_topics = list(set([ t for ts in task_config.job_assignment.values() for t in ts ]))
+            for topic_id, col in zip(sorted(all_loaded_topics), cycle(st.columns(8))):
+                col.button(
+                    f"Topic {topic_id}",
+                    use_container_width=True, 
+                    args=("nugget_revision", ), 
+                    key=f'{task_config.name}/entry/revision/{topic_id}',
+                    kwargs={'topic': topic_id, "collapse_sidebar": True},
+                    on_click=goto_page
+                )
+
+
+        st.write("### Step 3: Report Sentence Supportive Assessment")
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
@@ -227,26 +262,27 @@ def task_dashboard(auth_manager: AuthManager):
                 f"Topic {topic_id} ({n_done}/{n_job})", 
                 icon=icon,
                 use_container_width=True, 
+                key=f'{task_config.name}/entry/supportive/{topic_id}',
                 args=("citation_assessment", ), 
                 kwargs={'topic': topic_id, "collapse_sidebar": True},
                 on_click=goto_page
             )
     
         # force_citation_asssessment_before_report
-        st.write("### Report Sentence Assessments")
+        st.write("### Step 4: Nugget Alignment")
         if task_config.force_citation_asssessment_before_report:
-            st.caption("Can only start assessing report sentences after citation assessments are finished.")
-        report_annotation_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
-        report_annotation_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'report_annotation_manager')
+            st.caption("Can only start assessing report sentences for nugget alignment after citation assessments are finished.")
+        nugget_alignment_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
+        nugget_alignment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
         nugget_loader = get_nugget_loader(
             task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
         )
-        for topic_id, col in zip(report_annotation_topics, cycle(st.columns(8))):
+        for topic_id, col in zip(nugget_alignment_topics, cycle(st.columns(8))):
             
             # TODO: disable ones that haven't finished citation assessments
-            icon = ':material/check_box_outline_blank:' if not report_annotation_manager.is_all_done(topic_id) else ':material/select_check_box:'
-            n_done = report_annotation_manager.count_done(topic_id, level='run_id')
-            n_job = report_annotation_manager.count_job(topic_id, level='run_id')
+            icon = ':material/check_box_outline_blank:' if not nugget_alignment_manager.is_all_done(topic_id) else ':material/select_check_box:'
+            n_done = nugget_alignment_manager.count_done(topic_id, level='run_id')
+            n_job = nugget_alignment_manager.count_job(topic_id, level='run_id')
             activated = not task_config.force_citation_asssessment_before_report or citation_assessment_manager.is_all_done(topic_id)
 
             if task_config.use_revised_nugget_only:
@@ -256,22 +292,14 @@ def task_dashboard(auth_manager: AuthManager):
                 f"Topic {topic_id} ({n_done}/{n_job})", 
                 icon=icon,
                 use_container_width=True, 
+                key=f'{task_config.name}/entry/alignment/{topic_id}',
                 disabled=not activated,
-                args=("report_annotation", ), 
+                args=("nugget_alignment", ), 
                 kwargs={'topic': topic_id, "collapse_sidebar": True},
                 on_click=goto_page
             )
         
-        if auth_manager.is_admin:
-            st.write("### Nugget Revision (Admin Only)")
-            for topic_id, col in zip(sorted(task_config.report_runs.keys()), cycle(st.columns(8))):
-                col.button(
-                    f"Topic {topic_id}",
-                    use_container_width=True, 
-                    args=("nugget_revision", ), 
-                    kwargs={'topic': topic_id, "collapse_sidebar": True},
-                    on_click=goto_page
-                )
+
 
 
 def draw_sidebar():

@@ -86,7 +86,7 @@ def draw_bread_crumb(
         st.session_state.doc_nav = None
         
 
-    crumb_col, nav_col = st.columns([4, 1], vertical_alignment='center')
+    crumb_col, nav_col = st.columns([3, 1], vertical_alignment='center')
 
     # TODO: make things clickable and add modal for selecting doc and topic
     crumb_col.write(f" {icon} ".join(

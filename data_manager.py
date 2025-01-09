@@ -11,6 +11,7 @@ from copy import deepcopy
 
 from task_resources import TaskConfig
 
+import ir_datasets as irds
 
 class SqliteManager:
 
@@ -142,7 +143,7 @@ class NuggetSet:
             for nidx, (question, a_dict) in enumerate(self.nugget_list)
         )
 
-    def rename_question(self, old_question: str, new_question: str):
+    def rewrite_question(self, old_question: str, new_question: str):
         assert old_question in self
 
         if new_question not in self:
@@ -206,6 +207,19 @@ class NuggetSet:
         assert answer in a_dict
         del a_dict[answer]
 
+    def rewrite_answer(self, question: str, old_answer: str, new_answer: str):
+        if old_answer == new_answer:
+            return 
+        
+        assert question in self
+        a_dict = self.get(question)
+        assert old_answer in a_dict
+
+        if new_answer not in a_dict: 
+            a_dict[new_answer] = set()
+        a_dict[new_answer] |= a_dict[old_answer]
+        del a_dict[old_answer]
+
     def clone(self):
         new_nugget_set = self.__class__()
         new_nugget_set.nugget_list = deepcopy(self.nugget_list)
@@ -229,6 +243,14 @@ class NuggetSet:
         new_nugget_set.group_assignment = { **self.group_assignment, **obj.group_assignment }
         
         return new_nugget_set
+
+    def doc_has_nugget(self, doc_id: str):
+        for q, a_dict in self.nugget_list:
+            for d in a_dict.values():
+                if doc_id in d:
+                    return True
+        
+        return False
 
     def as_nugget_dict(self, only_answers: bool = False):
         return {
@@ -424,6 +446,10 @@ class NuggetSaverManager(SqliteManager):
 
 def _flatten_dict(obj: Mapping[str, Mapping]):
     for key, val in obj.items():
+        if isinstance(val, list):
+            # val = { i: v for i, v in enumerate(val) }
+            val = { v: "" for v in val }
+
         if isinstance(val, dict):
             yield from ( ((key, *cum_key), v) for cum_key, v in _flatten_dict(val) )
         else: 
@@ -432,7 +458,7 @@ def _flatten_dict(obj: Mapping[str, Mapping]):
 def _multi_level_dict_to_series(obj: Mapping[str, Mapping], names= List[str]):
     return pd.Series(dict(_flatten_dict(obj))).rename_axis(names)
 
-
+# TODO: it really should call AnnotationManager
 class SentenceAnnotationManager(SqliteManager):
 
     def __init__(
@@ -556,38 +582,17 @@ def session_set_default(session_key, default=None):
     
     return st.session_state[session_key]
 
-# TODO: might want to control what page need to initilize what
-# def initialize_managers(task_config: TaskConfig, username: str):
-#     return None
-#     output_dir = Path(task_config.output_dir)
+@st.cache_data(ttl=600)
+def get_doc_content(service, collection_id, doc_id):
+    if service == 'ir_datasets':
+        doc = irds.load(collection_id).docs.lookup(doc_id)
+        return {
+            'title': doc.title if hasattr(doc, 'title') else "",
+            'text': doc.default_text()
+        }
+    # TODO implement other stuff
+    return {'title': "", "text": f"Suppose to be {service} {collection_id} // {doc_id}"}
 
-#     logger = session_set_default(f'{task_config.name}/logger', lambda : ActivityLogMananger(output_dir / "log.db", username))
-#     session_set_default(
-#         f'{task_config.name}/nugget_manager', 
-#         lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
-#     )
-#     session_set_default(
-#         f'{task_config.name}/citation_assessment_manager', 
-#         lambda : SentenceAnnotationManager(
-#             output_dir / "annotation.db", # could be different
-#             output_dir, logger,
-#             table_name="sent2doc", 
-#             content_obj=task_config.cited_sentences, 
-#             slot_names='annot',
-#             level_names=['topic_id', 'doc_id', 'run_id', 'sent_id']
-#         )
-#     )
-#     session_set_default(
-#         f'{task_config.name}/report_annotation_manager', 
-#         lambda : SentenceAnnotationManager(
-#             output_dir / "annotation.db", # could be different
-#             output_dir, logger,
-#             table_name="sent2nugget", 
-#             content_obj=task_config.report_runs, 
-#             slot_names=('sent_indep', 'nugget'),
-#             level_names=['topic_id', 'run_id', 'sent_id']
-#         )
-#     )
 
 def get_manager(task_config: TaskConfig, username: str, manager_name: str):
     output_dir = Path(task_config.output_dir)
@@ -600,9 +605,22 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
             lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
         )
 
+    if manager_name == "relevance_assessment_manager":
+        return session_set_default(
+            f'{task_config.name}/{manager_name}', 
+            lambda : SentenceAnnotationManager(
+                output_dir / "annotation.db", # could be different
+                output_dir, logger,
+                table_name="doc_binary_rel", 
+                content_obj=task_config.pooled_docs, 
+                slot_names='no_nugget_found',
+                level_names=['topic_id', 'doc_id']
+            )
+        )
+
     if manager_name == "citation_assessment_manager":
         return session_set_default(
-            f'{task_config.name}/citation_assessment_manager', 
+            f'{task_config.name}/{manager_name}', 
             lambda : SentenceAnnotationManager(
                 output_dir / "annotation.db", # could be different
                 output_dir, logger,
@@ -613,9 +631,9 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
             )
         )
 
-    if manager_name == "report_annotation_manager":
+    if manager_name == "nugget_alignment_manager":
         return session_set_default(
-            f'{task_config.name}/report_annotation_manager', 
+            f'{task_config.name}/{manager_name}', 
             lambda : SentenceAnnotationManager(
                 output_dir / "annotation.db", # could be different
                 output_dir, logger,

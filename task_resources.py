@@ -24,6 +24,8 @@ class TaskConfig:
     topic_id_field: str = "request_id"
     topic_fields: List[str] = field(default_factory=lambda :['problem_statement', 'background'])
 
+    doc_pools_path: str = None # a json with {'topic_id: ['doc_id', ...] }
+
     # pooling decisions should live outside of this app
     cited_sentences_path: str = None # a json with {'topic_id': {'doc_id': {'run_id': {'sen_id': 'sentence_text', ...}, ...} ...}, ...}
     sentence_to_document_options: List[str] = field(default_factory=lambda :["not supported", "supported"])
@@ -55,6 +57,7 @@ class TaskConfig:
             topic[self.topic_id_field]: { key: topic[key] for key in self.topic_fields }
             for topic in map(json.loads, open(self.topic_file))
         }
+        self.pooled_docs: Dict[str, List[str]] = _load_json_resource(self.doc_pools_path)
         self.cited_sentences: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = _load_json_resource(self.cited_sentences_path)
         self.report_runs: Dict[str, Dict[str, Dict[str, str]]] = _load_json_resource(self.report_runs_path)
 
