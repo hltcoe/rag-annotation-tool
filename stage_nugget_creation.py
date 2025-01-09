@@ -6,7 +6,7 @@ from pathlib import Path
 from page_utils import stpage, draw_bread_crumb, toggle_button, get_auth_manager, random_key, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import NuggetSaverManager, NuggetSet, SentenceAnnotationManager, \
+from data_manager import NuggetSaverManager, NuggetSet, AnnotationManager, \
                          get_manager, get_doc_content
 from nugget_editor import draw_nugget_editor
 
@@ -26,7 +26,7 @@ def nugget_creation_page(auth_manager: AuthManager):
 
     # binary document relevance is inferred here -- mostly for progress tracking
     # real graded relevance should be inferred by the nugget importance
-    relevance_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
+    relevance_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
     nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager')
     nugget_set = nugget_manager[current_topic]
     

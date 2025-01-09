@@ -6,7 +6,7 @@ from pathlib import Path
 from page_utils import stpage, draw_bread_crumb, toggle_button, get_auth_manager, random_key, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import NuggetSaverManager, SentenceAnnotationManager, get_manager, get_doc_content
+from data_manager import NuggetSaverManager, AnnotationManager, get_manager, get_doc_content
 from nugget_editor import draw_nugget_editor
 
 
@@ -31,7 +31,7 @@ def citation_assessment_page(auth_manager: AuthManager):
     
     sorted_doc_list = sorted(task_config.cited_sentences[current_topic].keys())
 
-    citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
+    citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
     nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager')
     nugget_set = nugget_manager[current_topic]
     

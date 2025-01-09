@@ -5,7 +5,8 @@ import streamlit as st
 
 import sqlite3
 import pandas as pd
-
+import io
+import zipfile
 import json
 from copy import deepcopy
 
@@ -466,7 +467,7 @@ def _multi_level_dict_to_series(obj: Mapping[str, Mapping], names= List[str]):
     return pd.Series(dict(_flatten_dict(obj))).rename_axis(names)
 
 # TODO: it really should call AnnotationManager
-class SentenceAnnotationManager(SqliteManager):
+class AnnotationManager(SqliteManager):
 
     def __init__(
             self, db_path: str, 
@@ -581,6 +582,9 @@ class SentenceAnnotationManager(SqliteManager):
 
         self.logger.log(sql_query, sql_args)
         self.execute_simple(sql_query, sql_args)
+    
+    def to_tsv(self):
+        return self.content_df.to_csv(sep="\t")
 
 
 def session_set_default(session_key, default=None):
@@ -601,7 +605,7 @@ def get_doc_content(service, collection_id, doc_id):
     return {'title': "", "text": f"Suppose to be {service} {collection_id} // {doc_id}"}
 
 
-def get_manager(task_config: TaskConfig, username: str, manager_name: str):
+def get_manager(task_config: TaskConfig, username: str, manager_name: str) -> AnnotationManager:
     output_dir = Path(task_config.output_dir)
 
     logger = session_set_default(f'{task_config.name}/logger', lambda : ActivityLogMananger(output_dir / "log.db", username))
@@ -615,7 +619,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
     if manager_name == "relevance_assessment_manager":
         return session_set_default(
             f'{task_config.name}/{manager_name}', 
-            lambda : SentenceAnnotationManager(
+            lambda : AnnotationManager(
                 output_dir / "annotation.db", # could be different
                 output_dir, logger,
                 table_name="doc_binary_rel", 
@@ -628,7 +632,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
     if manager_name == "citation_assessment_manager":
         return session_set_default(
             f'{task_config.name}/{manager_name}', 
-            lambda : SentenceAnnotationManager(
+            lambda : AnnotationManager(
                 output_dir / "annotation.db", # could be different
                 output_dir, logger,
                 table_name="sent2doc", 
@@ -641,7 +645,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
     if manager_name == "nugget_alignment_manager":
         return session_set_default(
             f'{task_config.name}/{manager_name}', 
-            lambda : SentenceAnnotationManager(
+            lambda : AnnotationManager(
                 output_dir / "annotation.db", # could be different
                 output_dir, logger,
                 table_name="sent2nugget", 
@@ -652,6 +656,27 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str):
         )
 
     return st.session_state[f"{task_config.name}/{manager_name}"]
+
+def export_data(
+        task_config: TaskConfig, username: str, manager_names: List[str],
+        with_revised_nuggets: bool=True
+    ):
+    managers = {
+        name.replace("_manager", ""): get_manager(task_config, username, name)
+        for name in manager_names
+    }
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as fw:
+        for name, manager in managers.items():
+            fw.writestr(f"{name}.tsv", manager.to_tsv())
+
+        if with_revised_nuggets:
+            for fn in Path(task_config.output_dir).glob("nuggets_*.revised.json"):
+                fw.writestr(fn.name, fn.read_text())
+                
+    return zip_buffer
+
 
 def get_nugget_loader(
         task_config: TaskConfig, username: str=None,

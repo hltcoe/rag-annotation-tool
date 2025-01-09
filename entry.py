@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
+from datetime import datetime
+from typing import Dict
 import pandas as pd
 
 from itertools import cycle
@@ -8,7 +10,7 @@ import streamlit as st
 from page_utils import random_key, draw_pages, stpage, goto_page, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import SentenceAnnotationManager, get_manager, get_nugget_loader, session_set_default
+from data_manager import AnnotationManager, get_manager, get_nugget_loader, session_set_default, export_data
 
 
 _style_modifier = """
@@ -199,6 +201,23 @@ def manage_users_page(auth_manager: AuthManager):
     if delete_selection is not None:
         _delete_user(delete_selection.replace(":material/bolt: ", ""))
 
+@st.dialog(title="Download")
+def export_modal(task_config: TaskConfig, username: str):
+    # making this a modal to prevent creating the zip file everytime 
+    # someone arrive at the dashboard
+    print("running export")
+    buffer = export_data(task_config, username, [
+        "relevance_assessment_manager",
+        "citation_assessment_manager",
+        "nugget_alignment_manager"
+    ], with_revised_nuggets=True)
+
+    st.download_button(
+        label="Download",
+        data=buffer,
+        file_name=f"{task_config.name}_{datetime.now().isoformat()}_export.zip", 
+        mime="application/zip"
+    )
 
     
 @stpage(name='task_dashboard', require_login=True)
@@ -216,12 +235,15 @@ def task_dashboard(auth_manager: AuthManager):
 
         # initialize_managers(task_config, auth_manager.current_user)
 
-        st.write(f"## {task_name}")
+        title_col, button_col = st.columns([6, 1], vertical_alignment="center")
+        title_col.write(f"## {task_name}")
+        if auth_manager.is_admin and button_col.button("Export Data", use_container_width=True):
+            export_modal(task_config, auth_manager.current_user)
 
         st.write("### Step 1: Nugget Creation")
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
-        relevance_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
+        relevance_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
         for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
 
             n_done = relevance_assessment_manager.count_done(topic_id, level='doc_id')
@@ -256,7 +278,7 @@ def task_dashboard(auth_manager: AuthManager):
         st.write("### Step 3: Report Sentence Supportive Assessment")
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
-        citation_assessment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
+        citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
         for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
 
             n_done = citation_assessment_manager.count_done(topic_id, level='doc_id')
@@ -278,7 +300,7 @@ def task_dashboard(auth_manager: AuthManager):
         if task_config.force_citation_asssessment_before_report:
             st.caption("Can only start assessing report sentences for nugget alignment after citation assessments are finished.")
         nugget_alignment_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
-        nugget_alignment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
+        nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
         nugget_loader = get_nugget_loader(
             task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
         )
@@ -319,7 +341,10 @@ def draw_sidebar():
 
         if auth_manager.current_user is not None:
 
-            for task_name in task_configs.keys():
+            for task_name, task_config in task_configs.items():
+                if len(task_config.job_assignment.get(auth_manager.current_user, [])) == 0:
+                    continue
+                
                 if st.button(f"{task_name}"):
                     st.query_params['task'] = task_name
                     st.query_params.page = "task_dashboard"
@@ -358,7 +383,7 @@ if __name__ == '__main__':
     auth_manager = init_app(args)
 
     # TODO make this dynamic, with a flag
-    task_configs = {}
+    task_configs: Dict[str, TaskConfig] = {}
     for config in map(TaskConfig.from_json, args.task_configs):
         assert config.name not in task_configs, f"Task Name Collision -- {config.name}"
         task_configs[config.name] = config

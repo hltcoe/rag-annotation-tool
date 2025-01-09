@@ -6,7 +6,7 @@ import json
 from page_utils import stpage, draw_bread_crumb, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
-from data_manager import NuggetSelection, SentenceAnnotationManager, session_set_default, get_manager, get_nugget_loader
+from data_manager import NuggetSelection, AnnotationManager, session_set_default, get_manager, get_nugget_loader
 from nugget_editor import draw_nugget_editor
 
 
@@ -20,7 +20,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
     task_config: TaskConfig = st.session_state['task_configs'][st.query_params['task']]
     # initialize_managers(task_config, auth_manager.current_user)
 
-    nugget_alignment_manager: SentenceAnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
+    nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
     sorted_report_list = sorted(task_config.report_runs[current_topic].keys())
     nugget_loader = get_nugget_loader(task_config, auth_manager.current_user)
 
