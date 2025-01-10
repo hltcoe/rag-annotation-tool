@@ -583,8 +583,14 @@ class AnnotationManager(SqliteManager):
         self.logger.log(sql_query, sql_args)
         self.execute_simple(sql_query, sql_args)
     
-    def to_tsv(self):
-        return self.content_df.to_csv(sep="\t")
+    def to_tsv(self, all_data: bool=False):
+        if not all_data:
+            return self.content_df.to_csv(sep="\t")
+        
+        return pd.read_sql_query(
+            f"select * from {self.table_name};", self.conn
+        ).astype(str).sort_values('ts', ascending=False).to_csv(index=False, sep="\t")
+
 
 
 def session_set_default(session_key, default=None):
@@ -669,7 +675,7 @@ def export_data(
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as fw:
         for name, manager in managers.items():
-            fw.writestr(f"{name}.tsv", manager.to_tsv())
+            fw.writestr(f"{name}.tsv", manager.to_tsv(all_data=True))
 
         if with_revised_nuggets:
             for fn in Path(task_config.output_dir).glob("nuggets_*.revised.json"):
