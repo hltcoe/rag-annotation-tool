@@ -21,6 +21,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
     # initialize_managers(task_config, auth_manager.current_user)
 
     nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
+    # TODO: hash sort based on username
     sorted_report_list = sorted(task_config.report_runs[current_topic].keys())
     nugget_loader = get_nugget_loader(task_config, auth_manager.current_user)
 
