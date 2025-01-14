@@ -347,7 +347,7 @@ def draw_sidebar():
         st.query_params.clear()
 
     with st.sidebar:
-        st.write("## RAG Annotation Protal")
+        st.write("## RAG Annotation Portal")
 
         if auth_manager.current_user is not None:
 
