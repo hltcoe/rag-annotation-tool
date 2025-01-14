@@ -88,8 +88,6 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
 
     def _on_nugget_select(sent_id, question, answers):
-        # questions = answers if question == "*Other Options*" else [question]*len(answers)
-        
         if task_config.sentence_allow_multiple_nuggets:
             current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
         else:
@@ -99,6 +97,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
             current_nugget.add((question, a))
             
         nugget_alignment_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
+        st.rerun()
 
     def _on_nugget_unselect(sent_id, question, answers_to_remove):
         current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
@@ -111,7 +110,8 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
     with nugget_col.container(height=600, border=False):
         
-        active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}']        
+        active_sent_id = st.session_state[f'active_sent/{current_topic}/{run_id}'] 
+
         nuggets_for_selection = nugget_loader[current_topic].clone()
         for q in nuggets_for_selection.get_all_questions():
             nuggets_for_selection.add(q, [("_", "*Other acceptable answer*")])
@@ -130,7 +130,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
             # title="Nugget Selection For The Active Sentence",
             current_doc_id=active_sent_id,
             show_counts=False,
-            key_prefix="nugget_selector",
+            key_prefix=f"{current_topic}/{run_id}/{active_sent_id}/nugget_selector",
             allow_nugget_answer_selection=True,
             allow_nugget_answer_creation=False,
             allow_nugget_question_creation=False,

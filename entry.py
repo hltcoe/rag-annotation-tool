@@ -35,7 +35,12 @@ _style_modifier = """
 }
 
 button[kind="pills"] {
-    overflow: unset
+    overflow: unset;
+    white-space: unset;
+    text-overflow: unset; 
+    height: unset;
+    border-radius: 20px;
+    text-align: left;
 }
 
 
@@ -244,7 +249,7 @@ def task_dashboard(auth_manager: AuthManager):
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         relevance_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
-        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
+        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(6))):
 
             n_done = relevance_assessment_manager.count_done(topic_id, level='doc_id')
             # n_job = len(task_config.cited_sentences[topic_id])
@@ -264,7 +269,7 @@ def task_dashboard(auth_manager: AuthManager):
         if auth_manager.is_admin:
             st.write("### Step 2: Nugget Revision (Admin Only)")
             all_loaded_topics = list(set([ t for ts in task_config.job_assignment.values() for t in ts ]))
-            for topic_id, col in zip(sorted(all_loaded_topics), cycle(st.columns(8))):
+            for topic_id, col in zip(sorted(all_loaded_topics), cycle(st.columns(6))):
                 col.button(
                     f"Topic {topic_id}",
                     use_container_width=True, 
@@ -279,7 +284,7 @@ def task_dashboard(auth_manager: AuthManager):
 
         citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
-        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(8))):
+        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(6))):
 
             n_done = citation_assessment_manager.count_done(topic_id, level='doc_id')
             # n_job = len(task_config.cited_sentences[topic_id])
@@ -304,7 +309,7 @@ def task_dashboard(auth_manager: AuthManager):
         nugget_loader = get_nugget_loader(
             task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
         )
-        for topic_id, col in zip(nugget_alignment_topics, cycle(st.columns(8))):
+        for topic_id, col in zip(nugget_alignment_topics, cycle(st.columns(6))):
             
             # TODO: disable ones that haven't finished citation assessments
             icon = ':material/check_box_outline_blank:' if not nugget_alignment_manager.is_all_done(topic_id) else ':material/select_check_box:'

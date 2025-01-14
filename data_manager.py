@@ -466,7 +466,7 @@ def _flatten_dict(obj: Mapping[str, Mapping]):
 def _multi_level_dict_to_series(obj: Mapping[str, Mapping], names= List[str]):
     return pd.Series(dict(_flatten_dict(obj))).rename_axis(names)
 
-# TODO: it really should call AnnotationManager
+
 class AnnotationManager(SqliteManager):
 
     def __init__(

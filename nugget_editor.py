@@ -121,11 +121,15 @@ def draw_nugget_editor(
                 rename_group_modal(group_name)
 
         for nidx, question, a_dict in nugget_members:
-            if allow_nugget_answer_creation and allow_nugget_group_edit:
+            need_new_answer_column = allow_nugget_answer_creation \
+                and f"{key_prefix}/nugget/{nidx}/select" in st.session_state \
+                and '+' in st.session_state[f"{key_prefix}/nugget/{nidx}/select"]
+
+            if need_new_answer_column and allow_nugget_group_edit:
                 q_col, a_col, input_col, group_col = group_container.columns([2,2,1.5,1.5], vertical_alignment='center')
             elif allow_nugget_group_edit:
                 q_col, a_col, group_col = group_container.columns([2,3.5,1.5], vertical_alignment='center')
-            elif allow_nugget_answer_creation:
+            elif need_new_answer_column:
                 q_col, a_col, input_col = group_container.columns([2,2,3], vertical_alignment='center')
             else:
                 q_col, a_col = group_container.columns([5,5], vertical_alignment='center')

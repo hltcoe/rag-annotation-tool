@@ -49,9 +49,8 @@ class TaskConfig:
     doc_service: Literal['ir_datasets', 'http_api'] = 'ir_datasets'
 
     @classmethod
-    @st.cache_resource
     def from_json(cls, file_path: str):
-        return cls(**_load_json_resource(file_path))
+        return cls(**json.loads(Path(file_path).read_text()))
     
     def to_json(self, file_path: str):
         data = asdict(self)
