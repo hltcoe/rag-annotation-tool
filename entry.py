@@ -381,7 +381,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('--user_db_path', type=Path, default="./user_db.db")
-    parser.add_argument('--task_configs', nargs='+', type=Path, default=[])
+    # parser.add_argument('--task_configs', nargs='+', type=Path, default=[])
+    parser.add_argument('--task_config_path', type=str, default="./configs")
 
     args = parser.parse_args()
 
@@ -389,7 +390,7 @@ if __name__ == '__main__':
 
     # TODO make this dynamic, with a flag
     task_configs: Dict[str, TaskConfig] = {}
-    for config in map(TaskConfig.from_json, args.task_configs):
+    for config in map(TaskConfig.from_json, Path(args.task_config_path).glob("*.json")):
         assert config.name not in task_configs, f"Task Name Collision -- {config.name}"
         task_configs[config.name] = config
     
