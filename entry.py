@@ -43,6 +43,11 @@ button[kind="pills"] {
     text-align: left;
 }
 
+[data-testid="stElementContainer"]:has(hr.nugget_set_divider) {
+    margin-top: -35px; 
+    margin-bottom: -35px;
+}
+
 
 
 </style>

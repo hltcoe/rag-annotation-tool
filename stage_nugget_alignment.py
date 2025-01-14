@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 import json
 
-from page_utils import stpage, draw_bread_crumb, get_auth_manager, AuthManager
+from page_utils import stpage, draw_bread_crumb, stable_hash, get_auth_manager, AuthManager
 
 from task_resources import TaskConfig
 from data_manager import NuggetSelection, AnnotationManager, session_set_default, get_manager, get_nugget_loader
@@ -22,7 +22,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
     nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
     # TODO: hash sort based on username
-    sorted_report_list = sorted(task_config.report_runs[current_topic].keys())
+    sorted_report_list = sorted(task_config.report_runs[current_topic].keys(), key=lambda x: stable_hash(f"{auth_manager.current_user} {x}"))
     nugget_loader = get_nugget_loader(task_config, auth_manager.current_user)
 
     run_id_offset = draw_bread_crumb(
@@ -82,7 +82,8 @@ def nugget_alignment_page(auth_manager: AuthManager):
                 use_container_width=True,
                 args=(sent_id, ),
                 on_click=_on_sent_select,
-                type="primary" if should_highlight else "secondary"
+                type="primary" if should_highlight else "secondary",
+                key=f"{current_topic}/{run_id}/{sent_id}/sent_select_btn"
             )
 
             # st.write(content)

@@ -120,7 +120,12 @@ def draw_nugget_editor(
                change_col.button("Rename", icon=":material/edit:", key=f"{key_prefix}/group/{group_name}/rename"):
                 rename_group_modal(group_name)
 
+        skipped_first = False
         for nidx, question, a_dict in nugget_members:
+            if skipped_first:
+                group_container.html('<hr class="nugget_set_divider">')
+            skipped_first = True
+
             need_new_answer_column = allow_nugget_answer_creation \
                 and f"{key_prefix}/nugget/{nidx}/select" in st.session_state \
                 and '+' in st.session_state[f"{key_prefix}/nugget/{nidx}/select"]
@@ -134,6 +139,8 @@ def draw_nugget_editor(
             else:
                 q_col, a_col = group_container.columns([5,5], vertical_alignment='center')
             
+            
+
             if allow_nugget_question_edit:
                 if q_col.toggle(question, key=f"{key_prefix}/nugget/{nidx}/question_toggle"):
                     q_col.text_input(
@@ -190,6 +197,8 @@ def draw_nugget_editor(
                     args=(group_key, question),
                     on_change=_select_group
                 )
+            
+        
 
 
     def _new_nugget():

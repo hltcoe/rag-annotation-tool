@@ -14,6 +14,9 @@ _page_mapper = {}
 def random_key():
     return str(uuid.uuid4())
 
+def stable_hash(string):
+    return md5(string.encode()).hexdigest()
+
 def draw_pages(db_path, get_param='page', default_page=None):
     
     auth_manager = get_auth_manager(db_path)
