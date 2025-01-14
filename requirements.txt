@@ -1,2 +1,2 @@
-streamlit
+streamlit==1.40.0
 ir_datasets
