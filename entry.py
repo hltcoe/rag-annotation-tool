@@ -107,7 +107,7 @@ def change_password_modal(auth_manager: AuthManager, logout_fn):
     new_password = st.text_input("New Password", type="password")
     re_new_password = st.text_input("Retype New Password", type="password")
 
-    if st.button("Submit", type="primary", key=random_key()):
+    if st.button("Submit", type="primary", key="change_password_form"):
         if new_password != re_new_password:
             st.error("Inconsistent new passwords")
         if auth_manager.change_password(old_password, new_password):
