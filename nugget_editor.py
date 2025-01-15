@@ -48,6 +48,7 @@ def draw_nugget_editor(
 
                 if on_unselect_nugget_answer:
                     on_unselect_nugget_answer(current_doc_id, question, deleted)
+                    st.rerun()
                     return
                 
         # Adding
