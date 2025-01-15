@@ -419,6 +419,11 @@ class NuggetSaverManager(SqliteManager):
         for topic_id, nugget_json in existing_nugget_records:
             self.topic_nuggets[str(topic_id)] = NuggetSet.from_json(nugget_json)
 
+        for fn in self.output_dir.glob("nuggets_*.revised.json"):
+            topic_id = fn.stem.replace(".revised", "").split("_", 2)[1]
+            if topic_id not in self.topic_nuggets:
+                self.topic_nuggets[topic_id] = NuggetSet.from_json(fn.read_text())
+
         for fn in self.output_dir.glob("nuggets_*.preload.json"):
             topic_id = fn.stem.replace(".preload", "").split("_", 2)[1]
             if topic_id not in self.topic_nuggets:

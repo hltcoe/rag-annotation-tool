@@ -13,6 +13,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print(f"Got {len(args.input_reports)} reports.")
+
     all_runs = {
         (f.stem if f.suffix == ".jsonl" else f.name): [ json.loads(l) for l in f.open() ]
         for f in map(Path, args.input_reports)

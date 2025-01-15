@@ -59,6 +59,8 @@ def draw_nugget_editor(
             del st.session_state[selection_key]
             if add_key is not None:
                 del st.session_state[add_key]
+        
+        st.rerun()
     
     def _modify_question(nidx, text_key, toggle_key):
         old_question = nugget_set[nidx][0]

@@ -77,7 +77,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
             should_highlight = (st.session_state[f'active_sent/{current_topic}/{run_id}'] == sent_id)
 
             st.button(
-                label=text_content,
+                label=f"[#{sent_id}] {text_content}",
                 icon=':material/check_box_outline_blank:' if not_done else ':material/select_check_box:',
                 use_container_width=True,
                 args=(sent_id, ),
@@ -99,7 +99,6 @@ def nugget_alignment_page(auth_manager: AuthManager):
             current_nugget.add((question, a))
             
         nugget_alignment_manager.annotate(key=(current_topic, run_id, sent_id), slot="nugget", annotation=current_nugget)
-        st.rerun()
 
     def _on_nugget_unselect(sent_id, question, answers_to_remove):
         current_nugget: NuggetSelection = nugget_alignment_manager[current_topic, run_id, sent_id]['nugget']
@@ -116,7 +115,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
         nuggets_for_selection = nugget_loader[current_topic].clone()
         for q in nuggets_for_selection.get_all_questions():
-            nuggets_for_selection.add(q, [("_", "*Other acceptable answer*")])
+            nuggets_for_selection.add(q, [("_", "*Other answer*")])
 
         nuggets_for_selection.add("*Other Options*", [
             ("_", f"*{o}*")
