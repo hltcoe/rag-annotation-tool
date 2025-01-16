@@ -252,9 +252,11 @@ def task_dashboard(auth_manager: AuthManager):
 
         st.write("### Step 1: Nugget Creation")
 
-        citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
+        # TODO change the ordering
+        relevance_assess_topics = [ t for t in user_topics if t in task_config.pooled_docs.keys() ]
+        # sorted(filter(lambda x: x in user_topics, task_config.pooled_docs.keys()))
         relevance_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
-        for topic_id, col in zip(citation_assess_topics, cycle(st.columns(6))):
+        for topic_id, col in zip(relevance_assess_topics, cycle(st.columns(6))):
 
             n_done = relevance_assessment_manager.count_done(topic_id, level='doc_id')
             # n_job = len(task_config.cited_sentences[topic_id])
@@ -287,7 +289,8 @@ def task_dashboard(auth_manager: AuthManager):
 
         st.write("### Step 3: Report Sentence Supportive Assessment")
 
-        citation_assess_topics = sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
+        citation_assess_topics = [ t for t in user_topics if task_config.cited_sentences.keys() ]
+        # sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
         for topic_id, col in zip(citation_assess_topics, cycle(st.columns(6))):
 
@@ -309,7 +312,8 @@ def task_dashboard(auth_manager: AuthManager):
         st.write("### Step 4: Nugget Alignment")
         if task_config.force_citation_asssessment_before_report:
             st.caption("Can only start assessing report sentences for nugget alignment after citation assessments are finished.")
-        nugget_alignment_topics = sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
+        nugget_alignment_topics = [ t for t in user_topics if t in task_config.report_runs.keys() ]
+        # sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
         nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
         nugget_loader = get_nugget_loader(
             task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
