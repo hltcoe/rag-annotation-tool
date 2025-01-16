@@ -9,6 +9,8 @@ if __name__ == '__main__':
     parser.add_argument("input", type=Path)
     parser.add_argument("output_dir", type=Path)
 
+    parser.add_argument('--already_revised', action='store_true', default=False)
+
     args = parser.parse_args()
 
     input_fn: Path = args.input
@@ -22,8 +24,10 @@ if __name__ == '__main__':
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    file_suffix = "revised" if args.already_revised else "preload"
+
     for query_id, items in rubric_data.items():
-        output_fn = output_dir / f"nuggets_{query_id}.preload.json"
+        output_fn = output_dir / f"nuggets_{query_id}.{file_suffix}.json"
 
         if output_fn.exists():
             print(f"[{query_id}] file {output_fn} already exists, skipped.")
@@ -31,11 +35,10 @@ if __name__ == '__main__':
 
         with output_fn.open('w') as fw:
             json.dump({
-                item['question_text']: {
-                    answer: []
-                    for answer in item['gold_answers']
-                }
-                for item in items
+                "nugget_list": [
+                    (item['question_text'], { answer: [] for answer in item['gold_answers'] })
+                    for item in items
+                ]
             }, fw)
         
         print(f"[{query_id}] file {output_fn} done")

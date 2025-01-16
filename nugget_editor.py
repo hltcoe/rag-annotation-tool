@@ -167,7 +167,7 @@ def draw_nugget_editor(
             selected_answers = [ a for a, dids in a_dict.items() if current_doc_id in dids ]
             answer_selection = a_col.pills(
                 label="answers", 
-                options=sorted(a_dict.keys()) + (["+"] if allow_nugget_answer_creation else []),
+                options=list(a_dict.keys()) + (["+"] if allow_nugget_answer_creation else []),
                 format_func=_display_answers,
                 default=selected_answers,
                 selection_mode='multi',

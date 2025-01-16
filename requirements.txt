@@ -1,2 +1,4 @@
 streamlit==1.40.0
 ir_datasets
+datasets==2.8.0
+fsspec==2023.9.2

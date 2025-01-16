@@ -8,11 +8,20 @@ import pandas as pd
 import io
 import zipfile
 import json
+import pickle
 from copy import deepcopy
+from hashlib import md5
 
 from task_resources import TaskConfig
 
 import ir_datasets as irds
+
+# try:
+import datasets as hfds
+# except ImportError as e:
+#     hfds = None
+
+from tqdm import tqdm
 
 class SqliteManager:
 
@@ -136,7 +145,8 @@ class NuggetSet:
         ]
 
         for group in self.groups: # sort by group name
-            yield group, sorted(inverted_group[group], key=lambda x: x[1]) # sort by question
+            # yield group, sorted(inverted_group[group], key=lambda x: x[1]) # sort by question
+            yield group, inverted_group[group]
 
     def iter_nuggets(self, only_answers: bool=False):
         yield from (
@@ -258,18 +268,18 @@ class NuggetSet:
         
         return False
 
-    def as_nugget_dict(self, only_answers: bool = False):
-        return {
-            q: sorted(a_dict.keys()) if only_answers else a_dict
-            for q, a_dict in self.nugget_list
-        }
+    # def _as_nugget_dict(self, only_answers: bool = False):
+    #     return {
+    #         q: sorted(a_dict.keys()) if only_answers else a_dict
+    #         for q, a_dict in self.nugget_list
+    #     }
 
     def as_json(self, indent=None):
         return json.dumps({
-            'nugget_dict': {
-                q: { a: list(doc_set) for a, doc_set in a_dict.items() }
-                for q, a_dict in self.as_nugget_dict(only_answers=False).items()
-            },
+            'nugget_list': [
+                (q, { a: list(doc_set) for a, doc_set in a_dict.items() })
+                for q, a_dict in self.nugget_list
+            ],
             'group_assignment': {
                 nq: gp
                 for nq, gp in self.group_assignment.items() if gp != "default"
@@ -283,24 +293,32 @@ class NuggetSet:
         }).astype(str)
 
     @classmethod
-    def from_dict(cls, nugget_dict: Dict[str, Dict[str, List[str]]], group_assignment: Dict[str, str] = {}):
+    def from_list(cls, nugget_list: List[Tuple[str, Dict[str, List[str]]]], group_assignment: Dict[str, str] = {}):
         ret = cls()
         ret.nugget_list = [
             (question, { answer: set(doc_ids) for answer, doc_ids in a_dict.items() })
-            for question, a_dict in nugget_dict.items()
+            for question, a_dict in nugget_list
         ]
 
-        assert len(group_assignment.keys() - nugget_dict.keys()) == 0
+        assert len(group_assignment.keys() - set([ q for q, _ in ret.nugget_list ])) == 0
         ret.group_assignment = group_assignment
         
         return ret
 
     @classmethod
     def from_json(cls, json_string: str):
-        json_dict = json.loads(json_string)
-        if "nugget_dict" not in json_dict:
-            json_dict = {"nugget_dict": json_dict}
-        return cls.from_dict(**json_dict)
+        content = json.loads(json_string)
+        # if "nugget_dict" not in json_dict:
+        #     json_dict = {"nugget_dict": json_dict}
+
+        if "nugget_list" not in content:
+            #  deprecated
+            if "nugget_dict" not in content:
+                content = {'nugget_dict': content}
+            content['nugget_list'] = list(content['nugget_dict'].items())
+            del content['nugget_dict']
+            
+        return cls.from_list(**content)
 
 
 class NuggetSelection(set):
@@ -604,15 +622,52 @@ def session_set_default(session_key, default=None):
     
     return st.session_state[session_key]
 
+def _hash_hfds(ds: hfds.arrow_dataset.Dataset):
+    return md5("".join(sorted([ f['filename'] for f in ds.cache_files ])).encode()).hexdigest()
+
+def _get_hfds_id_mapping(ds: hfds.arrow_dataset.Dataset) -> Dict[str, int]:
+    cache_fn = Path(ds.cache_files[0]['filename']).parent / f"{_hash_hfds(ds)}.doc_id_mapping.pkl"
+    if cache_fn.exists():
+        with cache_fn.open('rb') as f:
+            data = pickle.load(f)
+        return data
+
+    print(f"creating cache at {cache_fn}")
+    mapping = { doc['id']: i for i, doc in enumerate(tqdm(ds)) }
+    with cache_fn.open('wb') as fw:
+        pickle.dump(mapping, fw)
+    
+    return mapping
+
+@st.cache_resource
+def _get_hfds_ds(ds_id, revision=None, split=None):
+    ds = hfds.load_dataset(ds_id, revision=revision, split=split)
+    return ds, _get_hfds_id_mapping(ds)
+    
+    
+
 @st.cache_data(ttl=600)
-def get_doc_content(service, collection_id, doc_id):
+def get_doc_content(service: str, collection_id: str, doc_id: str):
     if service == 'ir_datasets':
         doc = irds.load(collection_id).docs.lookup(doc_id)
         return {
             'title': doc.title if hasattr(doc, 'title') else "",
             'text': doc.default_text()
         }
-    # TODO implement other stuff
+    
+    elif service == 'hf_datasets' and hfds is not None:
+        # <user>/<project>#<branch>:<subset>+...
+        for ds_id in collection_id.split('+'):
+            ds_id, subset = ds_id.split(":")
+            ds_id, revision = ds_id.split('#')
+            ds, mapping = _get_hfds_ds(ds_id, revision=revision, split=subset)
+            idx = mapping.get(doc_id, None)
+            if idx is not None:
+                return {
+                    'title': ds[idx]['title'] if 'title' in ds[idx] else "",
+                    'text': ds[idx]['text']
+                }
+
     return {'title': "", "text": f"Suppose to be {service} {collection_id} // {doc_id}"}
 
 
