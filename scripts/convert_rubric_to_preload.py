@@ -16,11 +16,10 @@ if __name__ == '__main__':
     input_fn: Path = args.input
     output_dir: Path = args.output_dir
 
-    rubric_data = {}
-    with (gzip.open if input_fn.suffix == ".gz" else open)(input_fn, 'rt') as fr:
-        for l in fr:
-            d = json.loads(l) 
-            rubric_data[d['query_id']] = d['items']
+    rubric_data = {
+        d['query_id']: d['items']
+        for d in map(json.loads, (gzip.open if input_fn.suffix == ".gz" else open)(input_fn, 'rt'))
+    }
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -32,13 +31,21 @@ if __name__ == '__main__':
         if output_fn.exists():
             print(f"[{query_id}] file {output_fn} already exists, skipped.")
             continue
+    
+        # merge 
+        nugget_list = []
+        q_idx = {}
+        for item in items:
+            a_dict = { answer: [] for answer in item['gold_answers'] }
+            if item['question_text'] in q_idx:
+                nugget_list[ q_idx[item['question_text']] ][1].update(a_dict)
+            else:
+                nugget_list.append((item['question_text'], a_dict))
+                q_idx[item['question_text']] = len(nugget_list) - 1
 
         with output_fn.open('w') as fw:
             json.dump({
-                "nugget_list": [
-                    (item['question_text'], { answer: [] for answer in item['gold_answers'] })
-                    for item in items
-                ]
+                "nugget_list": nugget_list
             }, fw)
         
         print(f"[{query_id}] file {output_fn} done")
