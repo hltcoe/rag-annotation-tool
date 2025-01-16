@@ -249,7 +249,7 @@ class NuggetSet:
         for q, a_dict in obj.nugget_list:
             if q in new_nugget_set:
                 for answer, doc_set in a_dict.items():
-                    if answer in self.get(q):
+                    if answer in new_nugget_set.get(q):
                         new_nugget_set.get(q)[answer] |= doc_set
                     else:
                         new_nugget_set.get(q)[answer] = doc_set
