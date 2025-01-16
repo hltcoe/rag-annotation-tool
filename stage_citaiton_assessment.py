@@ -60,7 +60,7 @@ def citation_assessment_page(auth_manager: AuthManager):
        
     doc_col, annotation_col = st.columns([4, 6])
 
-    with doc_col.container(height=620):
+    with doc_col.container(height=615):
         doc_content = get_doc_content(task_config.doc_service, task_config.collection_id, doc_id)
         if doc_content['title'] != "":
             st.write(f"**{doc_content['title']}**")
@@ -78,7 +78,7 @@ def citation_assessment_page(auth_manager: AuthManager):
         )
         
 
-    with annotation_col.container(height=400):
+    with annotation_col.container(height=300):
         if citation_assessment_manager.is_all_done(current_topic, doc_id):
             st.html('<div class="is_done_flag"></div>')
 
@@ -128,15 +128,16 @@ def citation_assessment_page(auth_manager: AuthManager):
         nugget_set.rename_group(old_group_name, new_group_name)
         nugget_manager.flush(current_topic)
 
-    with annotation_col.container(height=205, border=None):
+    with annotation_col.container(height=300, border=None):
         draw_nugget_editor(
             nugget_set, 
             current_doc_id=doc_id,
-            title="Nugget Editor and Grouper",
+            title="Nugget Selector",
             key_prefix=f'{task_config.name}/citation/{current_topic}/',
             on_select_nugget_answer=_on_select_nugget_answer,
             on_unselect_nugget_answer=_on_unselect_nugget_answer,
             on_assign_group=_on_assign_group,
             on_rename_group=_on_rename_group,
-            allow_nugget_question_creation=False
+            allow_nugget_question_creation=False,
+            allow_nugget_group_edit=False
         )
