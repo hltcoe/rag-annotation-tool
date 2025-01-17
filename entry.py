@@ -311,7 +311,7 @@ def task_dashboard(auth_manager: AuthManager):
         # force_citation_asssessment_before_report
         st.write("### Step 4: Nugget Alignment")
         if task_config.force_citation_asssessment_before_report:
-            st.caption("Can only start assessing report sentences for nugget alignment after citation assessments are finished.")
+            st.caption("Can only start assessing report sentences for nugget alignment after report sentnece supportive assessments are finished.")
         nugget_alignment_topics = [ t for t in user_topics if t in task_config.report_runs.keys() ]
         # sorted(filter(lambda x: x in user_topics, task_config.report_runs.keys()))
         nugget_alignment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'nugget_alignment_manager')
