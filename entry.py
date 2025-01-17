@@ -16,7 +16,7 @@ from data_manager import AnnotationManager, get_manager, get_nugget_loader, sess
 _style_modifier = """
 <style>
 [data-testid="stMainBlockContainer"] {
-    padding: 4rem 2rem 0rem
+    padding: 4rem 2rem 4rem
 }
 
 [data-testid="stVerticalBlockBorderWrapper"]:has(.is_done_flag) {
@@ -319,8 +319,6 @@ def task_dashboard(auth_manager: AuthManager):
             task_config, auth_manager.current_user, use_revised_nugget=task_config.use_revised_nugget_only
         )
         for topic_id, col in zip(nugget_alignment_topics, cycle(st.columns(6))):
-            
-            # TODO: disable ones that haven't finished citation assessments
             icon = ':material/check_box_outline_blank:' if not nugget_alignment_manager.is_all_done(topic_id) else ':material/select_check_box:'
             n_done = nugget_alignment_manager.count_done(topic_id, level='run_id')
             n_job = nugget_alignment_manager.count_job(topic_id, level='run_id')

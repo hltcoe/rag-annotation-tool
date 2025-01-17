@@ -180,14 +180,16 @@ def draw_nugget_editor(
                 _modify_answer(nidx, f"{key_prefix}/nugget/{nidx}/select")
 
             if  "+" in answer_selection:
-                input_col.text_input(
+                added_answer = input_col.text_input(
                     label="add_answer",
                     placeholder="New answer...",
                     key=f"{key_prefix}/nugget/{nidx}/add",
                     label_visibility='collapsed',
-                    args=(nidx, f"{key_prefix}/nugget/{nidx}/select", f"{key_prefix}/nugget/{nidx}/add"),
-                    on_change=_modify_answer
+                    # args=(nidx, f"{key_prefix}/nugget/{nidx}/select", f"{key_prefix}/nugget/{nidx}/add"),
+                    # on_change=_modify_answer
                 )
+                if added_answer is not None and added_answer != "":
+                    _modify_answer(nidx, f"{key_prefix}/nugget/{nidx}/select", f"{key_prefix}/nugget/{nidx}/add")
             
             group_key = f"{key_prefix}/nugget/{nidx}/group"
             if allow_nugget_group_edit:
