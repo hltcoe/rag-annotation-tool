@@ -15,8 +15,12 @@ from data_manager import AnnotationManager, get_manager, get_nugget_loader, sess
 
 _style_modifier = """
 <style>
+header:has(.stAppToolbar) {
+    height: 0px;
+}
+
 [data-testid="stMainBlockContainer"] {
-    padding: 4rem 2rem 4rem
+    padding: 2rem 2rem 4rem
 }
 
 [data-testid="stVerticalBlockBorderWrapper"]:has(.is_done_flag) {
