@@ -27,7 +27,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
 
     run_id_offset = draw_bread_crumb(
         crumbs=[
-            st.query_params.task, "Citation Assessment", 
+            st.query_params.task, "Nugget Alginment", 
             f"Topic {st.query_params.topic}",
             "Report #{current_idx} ({n_done}/{n_jobs} Reports Done)"
         ],
@@ -55,7 +55,7 @@ def nugget_alignment_page(auth_manager: AuthManager):
             st.html('<div class="is_done_flag"></div>')
 
         
-        st.write("**Select applicable nuggets for the active sentence in marked in red at the right panel**")
+        st.write("**For the active sentence (marked in red), select all applicable nuggets in the right panel.**")
 
         sent_iter = lambda : sorted(nugget_alignment_manager[current_topic, run_id], key=lambda x: int(x[0]))
         

@@ -132,6 +132,7 @@ def toggle_button(label: str, key: str, default_open: bool=False, small: bool=Tr
     return st.session_state[key]
 
 def _get_session_id():
+    # ajs_anonymous_id
     if '_streamlit_xsrf' not in st.context.cookies:
         st.write('<script type="text/javascript">location.reload();</script>')
         return None

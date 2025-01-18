@@ -497,7 +497,8 @@ class AnnotationManager(SqliteManager):
             output_dir: str, log_manager: ActivityLogMananger,
             table_name: str, 
             content_obj: Dict,
-            level_names: Tuple[str], slot_names: Union[Tuple[str], str]
+            level_names: Tuple[str], 
+            slot_names: Union[Tuple[str], str]
         ):
             super().__init__(db_path, persistent_connection=False)
             self.logger = log_manager
@@ -561,14 +562,21 @@ class AnnotationManager(SqliteManager):
     def is_all_done(self, *keys):
         if keys not in self:
             return True
+        
+        d = self.content_df.drop('content', axis=1)
+        if 'nugget' in self.slot_names:
+            d['nugget'] = d.nugget.replace({"[]": None})
 
-        return not self.content_df.drop('content', axis=1).loc[keys].isna().any().any().item()
+        return not d.loc[keys].isna().any().any().item()
 
     def count_done(self, *keys, level=None):
         if keys not in self:
             return 0
 
         d = self.content_df.loc[keys].drop('content', axis=1)
+        if 'nugget' in self.slot_names:
+            d['nugget'] = d.nugget.replace({"[]": None})
+
         if level is None:
             return (~d.isna()).sum().sum().item()
     
@@ -578,10 +586,14 @@ class AnnotationManager(SqliteManager):
         if keys not in self:
             return 0
 
+        d = self.content_df
+        if 'nugget' in self.slot_names:
+            d['nugget'] = d.nugget.replace({"[]": None})
+
         if level is None: 
-            return self.content_df.loc[keys].drop('content').size
+            return d.loc[keys].drop('content').size
         
-        return self.content_df.loc[keys].index.get_level_values(level).unique().size
+        return d.loc[keys].index.get_level_values(level).unique().size
 
     def annotate(self, key: List[str], slot: str, annotation):
         assert slot in self.slot_names

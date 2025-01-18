@@ -291,14 +291,17 @@ def task_dashboard(auth_manager: AuthManager):
                 )
 
 
-        st.write("### Step 3: Report Sentence Supportive Assessment")
+        st.write("### Step 3: Report Sentence and Nugget Support Assessment")
 
         citation_assess_topics = [ t for t in user_topics if task_config.cited_sentences.keys() ]
         # sorted(filter(lambda x: x in user_topics, task_config.cited_sentences.keys()))
         citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
         for topic_id, col in zip(citation_assess_topics, cycle(st.columns(6))):
 
-            n_done = citation_assessment_manager.count_done(topic_id, level='doc_id')
+            n_done = min(
+                citation_assessment_manager.count_done(topic_id, level='doc_id'), 
+                relevance_assessment_manager.count_done(topic_id, level='doc_id')
+            )
             # n_job = len(task_config.cited_sentences[topic_id])
             n_job = citation_assessment_manager.count_job(topic_id, level='doc_id')
             icon = ':material/check_box_outline_blank:' if not citation_assessment_manager.is_all_done(topic_id) else ':material/select_check_box:'

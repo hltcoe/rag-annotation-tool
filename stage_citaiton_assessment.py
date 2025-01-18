@@ -31,25 +31,32 @@ def citation_assessment_page(auth_manager: AuthManager):
     
     sorted_doc_list = sorted(task_config.cited_sentences[current_topic].keys())
 
+    relevance_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'relevance_assessment_manager')
     citation_assessment_manager: AnnotationManager = get_manager(task_config, auth_manager.current_user, 'citation_assessment_manager')
     nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager')
     nugget_set = nugget_manager[current_topic]
     
+    n_done = min(
+        citation_assessment_manager.count_done(current_topic, level='doc_id'), 
+        relevance_assessment_manager.count_done(current_topic, level='doc_id')
+    )
+    if citation_assessment_manager.is_all_done(current_topic) and relevance_assessment_manager.is_all_done(current_topic):
+        st.toast(f'Topic {current_topic} is done.', icon=':material/thumb_up:')
+        n_done = len(sorted_doc_list)
+
     current_doc_offset = draw_bread_crumb(
         crumbs=[
-            st.query_params.task, "Citation Assessment and Support", 
+            st.query_params.task, "Sentence and Nugget Support Assessment", 
             f"Topic {st.query_params.topic}",
             "Doc #{current_idx} ({n_done}/{n_jobs} Documents Done)"
         ],
         n_jobs=len(sorted_doc_list), 
-        n_done=citation_assessment_manager.count_done(current_topic, level='doc_id'),
+        n_done=n_done,
         key=f'{task_config.name}/citation/{current_topic}/current_doc_offset',
-        check_done=lambda idx: citation_assessment_manager.is_all_done(current_topic, sorted_doc_list[idx])
+        check_done=lambda idx: citation_assessment_manager.is_all_done(current_topic, sorted_doc_list[idx]) \
+                               and relevance_assessment_manager.is_all_done(current_topic, sorted_doc_list[idx])
     )
 
-
-    if citation_assessment_manager.is_all_done(current_topic):
-        st.toast(f'Topic {current_topic} is done.', icon=':material/thumb_up:')
     
     doc_id = sorted_doc_list[current_doc_offset]
 
@@ -115,6 +122,7 @@ def citation_assessment_page(auth_manager: AuthManager):
     def _on_select_nugget_answer(doc_id, question, answers):
         nugget_set.add(question, [ (doc_id, answer) for answer in answers ])
         nugget_manager.flush(current_topic)
+        _on_check_no_citation_box(doc_id, "0")
 
     def _on_unselect_nugget_answer(doc_id, question, deleting_answers):
         nugget_set.remove(question, doc_id, deleting_answers)
@@ -128,11 +136,38 @@ def citation_assessment_page(auth_manager: AuthManager):
         nugget_set.rename_group(old_group_name, new_group_name)
         nugget_manager.flush(current_topic)
 
+    def _on_check_no_citation_box(doc_id, check=None):
+        if check is None:
+            check = st.session_state[f'{task_config.name}/citation/{current_topic}/{doc_id}/no_nugget']
+            check = "1" if check else "0"
+
+        relevance_assessment_manager.annotate(
+            key=(current_topic, doc_id),
+            slot='no_nugget_found', 
+            annotation=check
+        )
+
+
     with annotation_col.container(height=300, border=None):
+        
+        pre_select = relevance_assessment_manager[current_topic, doc_id]['no_nugget_found']
+        if pd.isna(pre_select):
+            pre_select = "0"
+
+
+        st.checkbox(
+            "No relevant nugget in this document.",
+            key=f'{task_config.name}/citation/{current_topic}/{doc_id}/no_nugget',
+            args=(doc_id, ),
+            value=pre_select == "1",
+            disabled=nugget_manager[current_topic].doc_has_nugget(doc_id),
+            on_change=_on_check_no_citation_box
+        )
+
         draw_nugget_editor(
             nugget_set, 
             current_doc_id=doc_id,
-            title="Nugget Selector",
+            title="Nugget Assessment",
             key_prefix=f'{task_config.name}/citation/{current_topic}/',
             on_select_nugget_answer=_on_select_nugget_answer,
             on_unselect_nugget_answer=_on_unselect_nugget_answer,
