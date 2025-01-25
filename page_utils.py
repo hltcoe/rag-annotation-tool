@@ -133,10 +133,14 @@ def toggle_button(label: str, key: str, default_open: bool=False, small: bool=Tr
 
 def _get_session_id():
     # ajs_anonymous_id
-    if '_streamlit_xsrf' not in st.context.cookies:
-        st.write('<script type="text/javascript">location.reload();</script>')
-        return None
-    return st.context.cookies['_streamlit_xsrf']
+    manager = get_cookie_manager()
+    if "rag_annotation_tool_id" not in manager.get_all():
+        manager.set("rag_annotation_tool_id", random_key(), max_age=9999999)
+    return manager.get("rag_anntation_tool_id")
+    # if '_streamlit_xsrf' not in st.context.cookies:
+    #     st.write('<script type="text/javascript">location.reload();</script>')
+    #     return None
+    # return st.context.cookies['_streamlit_xsrf']
 
 
 def _generate_salt(length: int=16):
