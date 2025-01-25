@@ -300,7 +300,7 @@ class NuggetSet:
             for question, a_dict in nugget_list
         ]
 
-        assert len(group_assignment.keys() - set([ q for q, _ in ret.nugget_list ])) == 0
+        # assert len(group_assignment.keys() - set([ q for q, _ in ret.nugget_list ])) == 0
         ret.group_assignment = group_assignment
         
         return ret
@@ -416,7 +416,7 @@ class NuggetLoader(SqliteManager):
 
 class NuggetSaverManager(SqliteManager):
 
-    def __init__(self, db_path: str, output_dir: str, log_manager: ActivityLogMananger):
+    def __init__(self, db_path: str, output_dir: str, log_manager: ActivityLogMananger, is_admin: bool=False):
         super().__init__(db_path, persistent_connection=False)
         self.logger = log_manager
         self.username = self.logger.username
@@ -432,7 +432,10 @@ class NuggetSaverManager(SqliteManager):
                 );
             """)
 
-        existing_nugget_records = self.execute_simple("""select topic_id, nugget_json from nuggets;""")
+        if not is_admin:
+            existing_nugget_records = self.execute_simple("""select topic_id, nugget_json from nuggets where username = ?;""", (self.username, ))
+        else:
+            existing_nugget_records = self.execute_simple("""select topic_id, nugget_json from nuggets;""")
         # print(existing_nugget_records)
         for topic_id, nugget_json in existing_nugget_records:
             self.topic_nuggets[str(topic_id)] = NuggetSet.from_json(nugget_json)
@@ -683,7 +686,7 @@ def get_doc_content(service: str, collection_id: str, doc_id: str):
     return {'title': "", "text": f"Suppose to be {service} {collection_id} // {doc_id}"}
 
 
-def get_manager(task_config: TaskConfig, username: str, manager_name: str) -> AnnotationManager:
+def get_manager(task_config: TaskConfig, username: str, manager_name: str, is_admin=False) -> AnnotationManager:
     output_dir = Path(task_config.output_dir)
 
     logger = session_set_default(f'{task_config.name}/logger', lambda : ActivityLogMananger(output_dir / "log.db", username))
@@ -691,7 +694,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str) -> An
     if manager_name == "nugget_manager":
         return session_set_default(
             f'{task_config.name}/nugget_manager', 
-            lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger)
+            lambda : NuggetSaverManager(output_dir / "annotation.db", output_dir, logger, is_admin=is_admin)
         )
 
     if manager_name == "relevance_assessment_manager":

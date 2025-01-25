@@ -22,7 +22,7 @@ def nugget_revision_page(auth_manager: AuthManager):
 
     key_prefix = f'{task_config.name}/nugget_revision/{current_topic}'
 
-    nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager')
+    nugget_manager: NuggetSaverManager = get_manager(task_config, auth_manager.current_user, 'nugget_manager', is_admin=auth_manager.is_admin)
     nugget_loader = get_nugget_loader(
         task_config, auth_manager.current_user, from_all_users=True, use_revised_nugget=False
     )
