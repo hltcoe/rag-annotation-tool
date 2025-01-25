@@ -133,10 +133,10 @@ def toggle_button(label: str, key: str, default_open: bool=False, small: bool=Tr
 
 def _get_session_id():
     # ajs_anonymous_id
-    if 'ajs_anonymous_id' not in st.context.cookies:
+    if '_streamlit_xsrf' not in st.context.cookies:
         st.write('<script type="text/javascript">location.reload();</script>')
         return None
-    return st.context.cookies['ajs_anonymous_id']
+    return st.context.cookies['_streamlit_xsrf']
 
 
 def _generate_salt(length: int=16):
