@@ -19,6 +19,8 @@ Flags after `--` are app sepcific configurations. Right now, you can pass mulitp
 
 The `--user_db_path` points to a sqlite database that contains user log in information with passwords stored with salts. 
 
+The default password for `root` is `yourdefaultpassword`. **Please change that before you make the tool publicly accessible.** 
+
 ## Config File
 
 Config files are `json` files that define the task.
