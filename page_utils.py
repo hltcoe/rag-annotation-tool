@@ -170,7 +170,7 @@ class AuthManager(SqliteManager):
     def init_db(self):
         if not self.table_exists("users"):
             self.execute_simple("""create table if not exists users (username string, salt string, password string, admin int default 0);""")
-            self.add_user("root", "nisthltcoeeugene", admin=True, table_init=True) # add the default one
+            self.add_user("root", "yourdefaultpassword", admin=True, table_init=True) # add the default one
 
     def add_user(self, username: str, password: str, admin=False, table_init=False):
         if not table_init:
