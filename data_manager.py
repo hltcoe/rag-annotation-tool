@@ -70,7 +70,7 @@ class ActivityLogMananger(SqliteManager):
         super().__init__(db_path, persistent_connection=False)
         self.username = username
 
-        if not self.table_exists('log'):
+        if not self.table_exists('logs'):
             self.execute_simple("""create table if not exists logs (username string, query string, args string, ts datetime default current_timestamp);""")
     
     def log(self, query: str, args = None):
