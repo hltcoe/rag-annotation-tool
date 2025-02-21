@@ -464,7 +464,7 @@ class NuggetSaverManager(SqliteManager):
 
         sql_query, sql_args = f"""
             insert or replace into nuggets (rowid, username, topic_id, nugget_json) values (
-            (select rowid from nuggets where topic_id = "{topic_id}"), ?, ?, json(?));
+            (select rowid from nuggets where topic_id = "{topic_id}" and username = "{self.username}"), ?, ?, json(?));
         """, (self.username, topic_id, self[topic_id].as_json())
 
         self.logger.log(sql_query, sql_args)
