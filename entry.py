@@ -223,7 +223,8 @@ def export_modal(task_config: TaskConfig, username: str):
     buffer = export_data(task_config, username, [
         "relevance_assessment_manager",
         "citation_assessment_manager",
-        "nugget_alignment_manager"
+        "nugget_alignment_manager",
+        "nugget_manager"
     ], with_revised_nuggets=True)
 
     st.download_button(
