@@ -478,6 +478,14 @@ class NuggetSaverManager(SqliteManager):
         with (self.output_dir / f"nuggets_{topic_id}.revised.json").open("w") as fw:
             fw.write(nugget_to_save.as_json(indent=4))
 
+    def to_tsv(self, all_data: bool=False):
+        
+        return pd.read_sql_query(
+            f"select * from nuggets", self.conn
+        ).astype(str).sort_values('ts', ascending=False).to_csv(index=False, sep="\t")
+
+
+
 def _flatten_dict(obj: Mapping[str, Mapping]):
     for key, val in obj.items():
         if isinstance(val, list):
