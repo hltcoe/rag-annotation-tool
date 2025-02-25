@@ -224,7 +224,7 @@ def export_modal(task_config: TaskConfig, username: str):
         "relevance_assessment_manager",
         "citation_assessment_manager",
         "nugget_alignment_manager",
-    ], with_revised_nuggets=True, all_nuggets=True)
+    ], with_revised_nuggets=True, with_annotator_nuggets=True)
 
     st.download_button(
         label="Download",
