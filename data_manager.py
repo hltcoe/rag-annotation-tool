@@ -479,7 +479,7 @@ class NuggetSaverManager(SqliteManager):
             fw.write(nugget_to_save.as_json(indent=4))
 
     def to_tsv(self, all_data: bool=False):
-        
+
         return pd.read_sql_query(
             f"select * from nuggets", self.conn
         ).astype(str).sort_values('ts', ascending=False).to_csv(index=False, sep="\t")
@@ -748,7 +748,7 @@ def get_manager(task_config: TaskConfig, username: str, manager_name: str, is_ad
 
 def export_data(
         task_config: TaskConfig, username: str, manager_names: List[str],
-        with_revised_nuggets: bool=True
+        with_revised_nuggets: bool=True, with_annotator_nuggets: bool=False
     ):
     managers = {
         name.replace("_manager", ""): get_manager(task_config, username, name)
@@ -762,6 +762,10 @@ def export_data(
 
         if with_revised_nuggets:
             for fn in Path(task_config.output_dir).glob("nuggets_*.revised.json"):
+                fw.writestr(fn.name, fn.read_text())
+        
+        if with_annotator_nuggets:
+            for fn in Path(task_config.output_dir).glob("nuggets_*_*.json"):
                 fw.writestr(fn.name, fn.read_text())
                 
     return zip_buffer
